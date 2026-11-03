@@ -140,7 +140,9 @@ public sealed class AiAliasAdvisor
         var result = await CallAsync(
                 probe,
                 "只回复两个字：可以",
-                maxTokens: 16,
+                // 16 个 token 不够：推理模型会先把预算全花在 reasoning 上，
+                // 实测 content 返回空串；64 才能拿到 "可以" 且仍然 1.9 秒结束。
+                maxTokens: 64,
                 cancellationToken)
             .ConfigureAwait(false);
 
