@@ -33,21 +33,21 @@ public sealed class CollectionController : ControllerBase
     /// <param name="advisor">AI 建议。</param>
     /// <param name="state">运行期状态。</param>
     /// <param name="libraryManager">媒体库服务。</param>
-    /// <param name="logger">日志。</param>
+    /// <param name="log">日志。</param>
     public CollectionController(
         ActorIndex index,
         CollectionSyncJob job,
         AiAliasAdvisor advisor,
         RuntimeState state,
         ILibraryManager libraryManager,
-        Microsoft.Extensions.Logging.ILogger<CollectionController> logger)
+        PluginLog log)
     {
         _index = index;
         _job = job;
         _advisor = advisor;
         _state = state;
         _libraryManager = libraryManager;
-        _log = new PluginLog(logger);
+        _log = log;
     }
 
     /// <summary>列出可选的媒体库。</summary>

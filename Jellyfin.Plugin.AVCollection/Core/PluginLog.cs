@@ -15,7 +15,7 @@ public sealed class PluginLog
 
     /// <summary>初始化日志包装。</summary>
     /// <param name="logger">Jellyfin 注入的 logger。</param>
-    public PluginLog(ILogger logger)
+    public PluginLog(ILogger<PluginLog> logger)
     {
         _logger = logger;
     }
