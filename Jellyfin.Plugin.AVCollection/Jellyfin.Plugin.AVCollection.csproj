@@ -7,9 +7,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Jellyfin.Plugin.AVCollection</RootNamespace>
     <AssemblyName>Jellyfin.Plugin.AVCollection</AssemblyName>
-    <Version>1.0.0.3</Version>
-    <AssemblyVersion>1.0.0.3</AssemblyVersion>
-    <FileVersion>1.0.0.3</FileVersion>
+    <Version>1.0.0.4</Version>
+    <AssemblyVersion>1.0.0.4</AssemblyVersion>
+    <FileVersion>1.0.0.4</FileVersion>
     <Company>Jellyfin-AV-Collection</Company>
     <Authors>Jellyfin-AV-Collection</Authors>
     <Description>Builds Jellyfin collections from AV actors, uses the actor portrait as the collection poster and merges several stage names of the same actor into one collection.</Description>

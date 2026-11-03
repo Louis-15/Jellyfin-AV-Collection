@@ -378,22 +378,59 @@
                 box.style.display = '';
             }
 
-            function api(method, path, body) {
-                return ApiClient.ajax({
-                    type: method,
-                    url: ApiClient.getUrl(path),
-                    data: body === undefined ? undefined : JSON.stringify(body),
-                    contentType: body === undefined ? undefined : 'application/json'
-                }).then(function (result) {
-                    if (typeof result === 'string') {
+            // GET 必须走 ApiClient.getJSON：ApiClient.ajax 在 GET 上返回的是 Response /
+            // 原始文本，不是解析后的对象，直接当数组用会永远拿到"空列表"。
+            function apiGet(path) {
+                return ApiClient.getJSON(ApiClient.getUrl(path));
+            }
+
+            // 写操作走 ajax。Jellyfin 的 ajax 在失败时 throw 的是 Response 对象，
+            // 所以错误处理要按 Response 读文本，不能假设有 responseText。
+            function apiSend(method, path, body) {
+                var options = { type: method, url: ApiClient.getUrl(path) };
+                if (body !== undefined) {
+                    options.data = JSON.stringify(body);
+                    options.contentType = 'application/json';
+                }
+
+                return ApiClient.ajax(options).then(function (result) {
+                    if (result && typeof result.json === 'function') {
+                        return result.json();
+                    }
+
+                    if (typeof result === 'string' && result) {
                         try {
                             return JSON.parse(result);
                         } catch (e) {
                             return result;
                         }
                     }
+
                     return result;
                 });
+            }
+
+            // 显示错误：优先读 Response 的正文，再退回状态码。
+            function describeError(error, fallback) {
+                if (!error) {
+                    return fallback;
+                }
+
+                if (typeof error === 'string') {
+                    return error;
+                }
+
+                if (error.status) {
+                    return fallback + '（HTTP ' + error.status + '）';
+                }
+
+                return fallback;
+            }
+
+            // GUID 在配置里可能是不带连字符的小写形式，接口返回也可能是带连字符的，
+            // 统一去掉连字符再比较，避免"明明配了库却显示未勾选"。
+            function normalizeId(value) {
+                return (value || '').toString().replace(/-/g, '').toLowerCase();
             }
 
             // ---------- 媒体库 ----------
@@ -402,10 +439,12 @@
                 var box = byId('LibraryList');
                 box.innerHTML = '';
 
-                if (!libraries.length) {
+                if (!libraries || !libraries.length) {
                     box.textContent = '没有找到媒体库。';
                     return;
                 }
+
+                var selectedIds = (selected || []).map(normalizeId);
 
                 libraries.forEach(function (library) {
                     var row = document.createElement('div');
@@ -418,7 +457,7 @@
                     input.type = 'checkbox';
                     input.setAttribute('is', 'emby-checkbox');
                     input.value = library.Id;
-                    input.checked = selected.indexOf(library.Id) >= 0;
+                    input.checked = selectedIds.indexOf(normalizeId(library.Id)) >= 0;
 
                     var span = document.createElement('span');
                     span.textContent = library.Name + (library.CollectionType ? '  (' + library.CollectionType + ')' : '');
@@ -431,7 +470,7 @@
             }
 
             function loadLibraries(selected) {
-                return api('GET', 'AVCollection/Libraries').then(function (libraries) {
+                return apiGet('AVCollection/Libraries').then(function (libraries) {
                     renderLibraries(libraries || [], selected || []);
                 });
             }
@@ -576,7 +615,7 @@
 
             function loadActors() {
                 Dashboard.showLoadingMsg();
-                return api('GET', 'AVCollection/Actors').then(function (list) {
+                return apiGet('AVCollection/Actors').then(function (list) {
                     actors = list || [];
                     renderActors();
                 }, function () {
@@ -649,7 +688,7 @@
                             return;
                         }
                         Dashboard.showLoadingMsg();
-                        api('DELETE', 'AVCollection/Groups/' + group.Id).then(function () {
+                        apiSend('DELETE', 'AVCollection/Groups/' + group.Id).then(function () {
                             return refreshGroups();
                         }).finally(function () {
                             Dashboard.hideLoadingMsg();
@@ -663,7 +702,7 @@
             }
 
             function refreshGroups() {
-                return api('GET', 'AVCollection/Groups').then(function (groups) {
+                return apiGet('AVCollection/Groups').then(function (groups) {
                     renderGroups(groups || []);
                 });
             }
@@ -676,7 +715,7 @@
                 }
 
                 Dashboard.showLoadingMsg();
-                api('POST', 'AVCollection/Groups', {
+                apiSend('POST', 'AVCollection/Groups', {
                     Aliases: names,
                     DisplayName: (byId('MergeDisplayName').value || '').trim(),
                     PosterAlias: (byId('MergePosterAlias').value || '').trim()
@@ -688,8 +727,8 @@
                     return refreshGroups().then(function () {
                         return loadActors();
                     });
-                }, function (xhr) {
-                    setStatus('保存合并组失败：' + (xhr && xhr.responseText ? xhr.responseText : '未知错误'), true);
+                }, function (error) {
+                    setStatus('保存合并组失败：' + describeError(error, '请确认当前账号有管理员权限'), true);
                 }).finally(function () {
                     Dashboard.hideLoadingMsg();
                 });
@@ -745,14 +784,14 @@
                     adopt.appendChild(span);
                     adopt.addEventListener('click', function () {
                         Dashboard.showLoadingMsg();
-                        api('POST', 'AVCollection/Groups', { Aliases: item.aliases }).then(function () {
+                        apiSend('POST', 'AVCollection/Groups', { Aliases: item.aliases }).then(function () {
                             card.remove();
                             setStatus('已采纳建议：' + (item.aliases || []).join(' + ') + '。点「立即同步」让合集生效。');
                             return refreshGroups().then(function () {
                                 return loadActors();
                             });
-                        }, function (xhr) {
-                            setStatus('采纳失败：' + (xhr && xhr.responseText ? xhr.responseText : '未知错误'), true);
+                        }, function (error) {
+                            setStatus('采纳失败：' + describeError(error, '请确认当前账号有管理员权限'), true);
                         }).finally(function () {
                             Dashboard.hideLoadingMsg();
                         });
@@ -767,10 +806,10 @@
             function suggest() {
                 Dashboard.showLoadingMsg();
                 byId('SuggestResult').textContent = '正在请求模型…';
-                api('POST', 'AVCollection/Suggest').then(function (result) {
+                apiSend('POST', 'AVCollection/Suggest').then(function (result) {
                     renderSuggestions(result || {});
-                }, function () {
-                    byId('SuggestResult').textContent = '请求失败，请检查 API Key 与接口地址。';
+                }, function (error) {
+                    byId('SuggestResult').textContent = '请求失败：' + describeError(error, '请检查 API Key 与接口地址');
                 }).finally(function () {
                     Dashboard.hideLoadingMsg();
                 });
@@ -781,12 +820,12 @@
             function preview() {
                 Dashboard.showLoadingMsg();
                 setStatus('正在计算…');
-                api('POST', 'AVCollection/Preview').then(function (result) {
+                apiSend('POST', 'AVCollection/Preview').then(function (result) {
                     var text = (result && result.summary) || '完成';
                     var details = (result && result.details) || [];
                     setStatus(text + (details.length ? '\n\n' + details.join('\n') : ''));
-                }, function () {
-                    setStatus('预览失败，请确认当前账号是管理员。', true);
+                }, function (error) {
+                    setStatus('预览失败：' + describeError(error, '请确认当前账号是管理员'), true);
                 }).finally(function () {
                     Dashboard.hideLoadingMsg();
                 });
@@ -795,11 +834,11 @@
             function runNow() {
                 Dashboard.showLoadingMsg();
                 setStatus('正在同步，合集较多时可能要一两分钟…');
-                api('POST', 'AVCollection/Run').then(function (result) {
+                apiSend('POST', 'AVCollection/Run').then(function (result) {
                     setStatus((result && result.summary) || '完成');
                     return loadActors();
-                }, function () {
-                    setStatus('同步失败，请确认当前账号是管理员。', true);
+                }, function (error) {
+                    setStatus('同步失败：' + describeError(error, '请确认当前账号是管理员'), true);
                 }).finally(function () {
                     Dashboard.hideLoadingMsg();
                 });

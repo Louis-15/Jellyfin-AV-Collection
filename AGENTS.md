@@ -1,7 +1,7 @@
 # AV Collection · 项目交接文档
 
 > 这份文档写给**接手继续开发的人或 AI**。读完这一篇就能直接改代码，不需要翻聊天记录。
-> 最后更新：2026-11-03，当前版本 **1.0.0.3**。
+> 最后更新：2026-11-03，当前版本 **1.0.0.4**。
 
 ---
 
@@ -161,6 +161,13 @@ Jellyfin.Plugin.AVCollection/
 7. **PowerShell 脚本必须带 BOM**（见 §2）。
 8. **不要把 Jellyfin 程序集拷到插件目录**：`CopyLocalLockFileAssemblies=false` 不能改，
    否则同一类型会有两个身份，DI 静默匹配失败。
+9. **`ApiClient.ajax` 对 GET 不返回解析后的 JSON**：它返回 `Response` 对象，
+   直接当数组用会 `libraries.length === undefined`，页面永远显示"没有找到媒体库"。
+   GET 一律走 `ApiClient.getJSON`；写操作走 `ApiClient.ajax` 并自己判断
+   `result.json` 是否存在。**这个 bug 只在真实 Jellyfin 里出现，本地 harness 用 mock 复现不了**，
+   所以改前端时 mock 必须模拟"ajax 返回 Response、getJSON 返回对象"。
+10. **`ApiClient.ajax` 失败时 throw 的是 `Response`**，没有 `responseText`；
+    错误处理要按 `error.status` / `error.json()` 读。
 
 ---
 
@@ -218,7 +225,8 @@ dotnet test .\tests\Jellyfin.Plugin.AVCollection.Tests\...\csproj -c Release
 | 1.0.0.0 | 首发：建合集 / 封面 / 艺名合并 / AI 建议 |
 | 1.0.0.1 | 修 DI：`PluginLog` 注入非泛型 `ILogger` 导致定时任务构造失败 |
 | 1.0.0.2 | 安全修复：未配置媒体库时不再回退"所有电影库"（实测会建 431 个合集） |
-| **1.0.0.3** | 文案微调（"取最活跃的艺名"、"· 已在合并组"） |
+| 1.0.0.3 | 文案微调（"取最活跃的艺名"、"· 已在合并组"） |
+| **1.0.0.4** | 修设置页"没有找到媒体库"：`ApiClient.ajax` 对 GET 不返回解析后的 JSON，改用 `getJSON`；GUID 大小写/连字符归一化 |
 
 ### 仓库推送注意
 
