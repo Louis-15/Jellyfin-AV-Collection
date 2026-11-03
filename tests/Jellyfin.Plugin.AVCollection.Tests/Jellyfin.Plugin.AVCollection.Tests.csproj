@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Jellyfin.Plugin.AVCollection.Tests</RootNamespace>
+    <AssemblyName>Jellyfin.Plugin.AVCollection.Tests</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Jellyfin.Plugin.AVCollection\Jellyfin.Plugin.AVCollection.csproj" />
+    <!--
+      主工程刻意不把 Jellyfin 程序集拷到输出目录（会被 Jellyfin 当插件依赖重复加载）。
+      测试宿主需要在运行时构造 PluginConfiguration，所以这里带 runtime 资产单独引用一次。
+    -->
+    <PackageReference Include="Jellyfin.Controller" Version="12.2.0" />
+  </ItemGroup>
+
+</Project>

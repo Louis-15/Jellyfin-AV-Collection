@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AV Collection</title>
+</head>
+<body>
+<div id="AVCollectionConfigPage" data-role="page" class="page type-interior pluginConfigurationPage"
+     data-require="emby-input,emby-button,emby-select,emby-checkbox">
+    <!--
+        样式必须写在 <body> 里。
+        Jellyfin 加载插件页时只把 <body> 的子节点搬进 SPA 容器，
+        <head> 里的 <style> 会被整块丢弃 —— 挪回 <head> 会立刻退回成没有任何样式的裸排版。
+    -->
+    <style>
+        #AVCollectionConfigPage .av-group {
+            min-width: 0;
+            margin: 0 0 1.5rem;
+            padding: 0.2rem 1.1rem 1.2rem;
+            border: 1px solid rgba(127, 127, 127, 0.45);
+            border-radius: 0.35em;
+        }
+
+        #AVCollectionConfigPage .av-group > .av-group-title {
+            width: auto;
+            margin-left: 0.2em;
+            padding: 0 0.5em;
+            font-size: 1.08em;
+            font-weight: 600;
+            line-height: 1.7;
+            color: inherit;
+        }
+
+        #AVCollectionConfigPage .av-group-body > :first-child {
+            margin-top: 0;
+        }
+
+        #AVCollectionConfigPage .av-group-body > :last-child {
+            margin-bottom: 0;
+        }
+
+        #AVCollectionConfigPage .av-hint {
+            color: var(--theme-secondary-color, #888);
+            font-size: 0.92em;
+        }
+
+        #AVCollectionConfigPage .av-actions {
+            margin: 0.6rem 0;
+        }
+
+        #AVCollectionConfigPage .av-scroll {
+            max-height: 18rem;
+            overflow-y: auto;
+            padding: 0.35rem 0.75rem;
+            border: 1px solid rgba(127, 127, 127, 0.25);
+            border-radius: 0.3em;
+        }
+
+        /* 演员 / 合集的每一行都用官方 .checkboxContainer + .emby-checkbox-label 结构。
+           切勿给 label 写内联 padding：会覆盖 .emby-checkbox-label 自带的
+           padding-left: 2.4em，让绝对定位的复选框方框压住名字前两个字。 */
+        #AVCollectionConfigPage .av-row {
+            margin: 0;
+        }
+
+        #AVCollectionConfigPage .av-row .emby-checkbox-label {
+            display: flex;
+            height: auto;
+            min-height: 2.2em;
+        }
+
+        #AVCollectionConfigPage .av-count {
+            margin-left: 0.55em;
+            color: var(--theme-secondary-color, #888);
+            font-size: 0.9em;
+        }
+
+        #AVCollectionConfigPage .av-card {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+            margin: 0 0 0.6rem;
+            padding: 0.6rem 0.75rem;
+            border: 1px solid rgba(127, 127, 127, 0.28);
+            border-radius: 0.3em;
+        }
+
+        #AVCollectionConfigPage .av-card-main {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        #AVCollectionConfigPage .av-card-title {
+            font-weight: 600;
+            word-break: break-word;
+        }
+
+        #AVCollectionConfigPage .av-card-note {
+            margin-top: 0.25rem;
+            color: var(--theme-secondary-color, #888);
+            font-size: 0.9em;
+            word-break: break-word;
+        }
+
+        #AVCollectionConfigPage .av-status {
+            display: none;
+            margin: 0.75rem 0 0;
+            padding: 0.6rem 0.8rem;
+            border-left: 3px solid #2b8a3e;
+            background: rgba(127, 127, 127, 0.08);
+            white-space: pre-wrap;
+            font-size: 0.95em;
+        }
+
+        #AVCollectionConfigPage .av-status-bad {
+            border-left-color: #cc3b3b;
+        }
+
+        #AVCollectionConfigPage .av-empty {
+            color: var(--theme-secondary-color, #888);
+            padding: 0.5rem 0;
+        }
+
+        #AVCollectionConfigPage .av-search {
+            margin-bottom: 0.5rem;
+        }
+    </style>
+
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="AVCollectionForm">
+                <fieldset class="av-group">
+                    <legend class="av-group-title">基本设置</legend>
+                    <div class="av-group-body">
+                        <p class="fieldDescription">
+                            按演员把影片归进 Jellyfin 合集，用演员头像做合集封面，
+                            并可以把同一位演员的多个艺名合并到一个合集里。
+                            计划任务每 6 小时跑一次，也可以在本页手动触发。
+                        </p>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="Enabled" type="checkbox" is="emby-checkbox" />
+                                <span>启用插件</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                关闭后计划任务不再改动任何合集。
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="av-group">
+                    <legend class="av-group-title">目标影视库</legend>
+                    <div class="av-group-body">
+                        <div class="av-actions">
+                            <button is="emby-button" type="button" id="ReloadLibraries" class="raised small">
+                                <span>刷新列表</span>
+                            </button>
+                        </div>
+                        <div id="LibraryList" class="av-scroll">正在加载影视库…</div>
+                        <div class="av-hint">
+                            不勾任何库时，自动处理所有「电影」类型的媒体库。
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="av-group">
+                    <legend class="av-group-title">合集规则</legend>
+                    <div class="av-group-body">
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="MaxAliasesInName">合集名中最多显示几个艺名</label>
+                            <input is="emby-input" id="MaxAliasesInName" type="number" min="1" max="4" step="1" />
+                            <div class="fieldDescription">
+                                按作品数从多到少取。设为 2 时，「小野夕子」和「葵」合并后合集名是「小野夕子 / 葵」。
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="MergeRemoveOldCollections" type="checkbox" is="emby-checkbox" />
+                                <span>合并后删除旧合集</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                把「葵」「小野夕子」并进「小野夕子 / 葵」之后，删掉前两个只剩单部影片的空壳合集。
+                                不勾选则保留，由你自己清理。
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="SetPosterFromActor" type="checkbox" is="emby-checkbox" />
+                                <span>用演员头像作为合集封面</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                合并组使用「封面艺名」那一张头像；未指定时用作品数最多的艺名。
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="ClearWrongMetadata" type="checkbox" is="emby-checkbox" />
+                                <span>清理误匹配的元数据</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Jellyfin 偶尔会把演员合集匹配成同名电影（例如「かすみ」→《真田女忍者霞传》），
+                                勾选后会清掉错误的简介、首播日期和背景图。
+                            </div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="MinActorCount">最少演员数保护</label>
+                            <input is="emby-input" id="MinActorCount" type="number" min="1" max="100" step="1" />
+                            <div class="fieldDescription">
+                                媒体库扫描期间演员信息可能为空。扫到的演员少于这个数量时直接中止，避免把合集清空。
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="av-group">
+                    <legend class="av-group-title">艺名合并</legend>
+                    <div class="av-group-body">
+                        <p class="fieldDescription">
+                            把「其实是同一个人、但用了不同艺名」的演员勾在一起，点「合并选中的艺名」。
+                            合并后他们共用同一个合集，影片也会并到一起。
+                        </p>
+
+                        <div class="av-actions">
+                            <input is="emby-input" id="ActorSearch" class="av-search" type="text"
+                                   placeholder="搜索艺名…" />
+                        </div>
+
+                        <div id="ActorList" class="av-scroll">正在加载演员…</div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="MergeDisplayName">
+                                合集名（可留空）
+                            </label>
+                            <input is="emby-input" id="MergeDisplayName" type="text" />
+                            <div class="fieldDescription">
+                                留空则自动按作品数取最快的几个艺名拼成「A / B」。
+                            </div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="MergePosterAlias">
+                                封面用哪个艺名的头像（可留空）
+                            </label>
+                            <input is="emby-input" id="MergePosterAlias" type="text" />
+                            <div class="fieldDescription">
+                                留空则用作品数最多的那个艺名。
+                            </div>
+                        </div>
+
+                        <div class="av-actions">
+                            <button is="emby-button" type="button" id="MergeSelected" class="raised">
+                                <span>合并选中的艺名</span>
+                            </button>
+                            <button is="emby-button" type="button" id="ReloadActors" class="raised small">
+                                <span>重新扫描演员</span>
+                            </button>
+                        </div>
+
+                        <div class="av-hint">已配置的合并组：</div>
+                        <div id="GroupList">正在加载…</div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="av-group">
+                    <legend class="av-group-title">AI 建议（可选）</legend>
+                    <div class="av-group-body">
+                        <p class="fieldDescription">
+                            让 OpenAI 兼容模型看一眼演员列表，猜哪些艺名是同一个人。
+                            模型只给建议，必须你点「采纳」才会生效。
+                        </p>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="AiEnabled" type="checkbox" is="emby-checkbox" />
+                                <span>启用 AI 建议</span>
+                            </label>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="AiBaseUrl">接口地址</label>
+                            <input is="emby-input" id="AiBaseUrl" type="text" />
+                            <div class="fieldDescription">
+                                不含 /chat/completions。默认是 Open Code 网关，也可以填自己的 OpenAI 兼容地址。
+                            </div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="AiApiKey">API Key</label>
+                            <input is="emby-input" id="AiApiKey" type="password" />
+                            <div class="fieldDescription">只保存在服务器插件配置里，不会写进日志。</div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="AiModel">模型</label>
+                            <input is="emby-input" id="AiModel" type="text" />
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="AiUseSessionHeader" type="checkbox" is="emby-checkbox" />
+                                <span>附带 x-opencode-session 请求头</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Open Code 网关强制要求；换成 OpenAI / DeepSeek 官方接口时请取消勾选。
+                            </div>
+                        </div>
+
+                        <div class="av-actions">
+                            <button is="emby-button" type="button" id="SuggestButton" class="raised">
+                                <span>让 AI 找同一个人</span>
+                            </button>
+                        </div>
+
+                        <div id="SuggestResult"></div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="av-group">
+                    <legend class="av-group-title">手动运行</legend>
+                    <div class="av-group-body">
+                        <div class="av-actions">
+                            <button is="emby-button" type="button" id="PreviewButton" class="raised small">
+                                <span>预览（不写库）</span>
+                            </button>
+                            <button is="emby-button" type="button" id="RunButton" class="raised">
+                                <span>立即同步</span>
+                            </button>
+                            <button is="emby-button" type="button" id="OpenTasks" class="raised small">
+                                <span>打开计划任务</span>
+                            </button>
+                        </div>
+                        <div id="RunStatus" class="av-status"></div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="av-group">
+                    <legend class="av-group-title">关于</legend>
+                    <div class="av-group-body">
+                        <div class="fieldDescription">
+                            演员合集插件：自动建合集、自动换封面、自动合并同一演员的多个艺名。<br />
+                            源码与问题反馈：
+                            <a href="https://github.com/Louis-15/Jellyfin-AV-Collection" target="_blank" rel="noopener">github.com/Louis-15/Jellyfin-AV-Collection</a>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <div>
+                    <button is="emby-button" type="submit" class="raised button-submit">
+                        <span>保存设置</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        (function () {
+            var PluginId = 'a9a417c4-254a-4c10-b869-f6a38bf418ee';
+            var page;
+
+            // 演员列表只加载一次，勾选状态在过滤时保留。
+            var actors = [];
+            var selectedActors = {};
+
+            function byId(id) {
+                return page.querySelector('#' + id);
+            }
+
+            function setStatus(message, bad) {
+                var box = byId('RunStatus');
+                box.textContent = message;
+                box.className = bad ? 'av-status av-status-bad' : 'av-status';
+                box.style.display = '';
+            }
+
+            function api(method, path, body) {
+                return ApiClient.ajax({
+                    type: method,
+                    url: ApiClient.getUrl(path),
+                    data: body === undefined ? undefined : JSON.stringify(body),
+                    contentType: body === undefined ? undefined : 'application/json'
+                }).then(function (result) {
+                    if (typeof result === 'string') {
+                        try {
+                            return JSON.parse(result);
+                        } catch (e) {
+                            return result;
+                        }
+                    }
+                    return result;
+                });
+            }
+
+            // ---------- 媒体库 ----------
+
+            function renderLibraries(libraries, selected) {
+                var box = byId('LibraryList');
+                box.innerHTML = '';
+
+                if (!libraries.length) {
+                    box.textContent = '没有找到媒体库。';
+                    return;
+                }
+
+                libraries.forEach(function (library) {
+                    var row = document.createElement('div');
+                    row.className = 'checkboxContainer av-row';
+
+                    var label = document.createElement('label');
+                    label.className = 'emby-checkbox-label';
+
+                    var input = document.createElement('input');
+                    input.type = 'checkbox';
+                    input.setAttribute('is', 'emby-checkbox');
+                    input.value = library.Id;
+                    input.checked = selected.indexOf(library.Id) >= 0;
+
+                    var span = document.createElement('span');
+                    span.textContent = library.Name + (library.CollectionType ? '  (' + library.CollectionType + ')' : '');
+
+                    label.appendChild(input);
+                    label.appendChild(span);
+                    row.appendChild(label);
+                    box.appendChild(row);
+                });
+            }
+
+            function loadLibraries(selected) {
+                return api('GET', 'AVCollection/Libraries').then(function (libraries) {
+                    renderLibraries(libraries || [], selected || []);
+                });
+            }
+
+            function selectedLibraryIds() {
+                var ids = [];
+                page.querySelectorAll('#LibraryList input[type=checkbox]').forEach(function (input) {
+                    if (input.checked) {
+                        ids.push(input.value);
+                    }
+                });
+                return ids;
+            }
+
+            // ---------- 配置 ----------
+
+            function loadConfig() {
+                return ApiClient.getPluginConfiguration(PluginId).then(function (cfg) {
+                    byId('Enabled').checked = cfg.Enabled !== false;
+
+                    var maxAliases = cfg.MaxAliasesInName || 2;
+                    byId('MaxAliasesInName').value = maxAliases;
+                    byId('MergeRemoveOldCollections').checked = cfg.MergeRemoveOldCollections !== false;
+                    byId('SetPosterFromActor').checked = cfg.SetPosterFromActor !== false;
+                    byId('ClearWrongMetadata').checked = cfg.ClearWrongMetadata !== false;
+                    byId('MinActorCount').value = cfg.MinActorCount || 3;
+
+                    var ai = cfg.Ai || {};
+                    byId('AiEnabled').checked = ai.Enabled === true;
+                    byId('AiBaseUrl').value = ai.BaseUrl || 'https://opencode.ai/inference/go/openai/v1';
+                    byId('AiApiKey').value = ai.ApiKey || '';
+                    byId('AiModel').value = ai.Model || 'deepseek-v4.1-flash';
+                    byId('AiUseSessionHeader').checked = ai.UseSessionHeader !== false;
+
+                    return loadLibraries(cfg.LibraryIds || []);
+                });
+            }
+
+            function save(event) {
+                if (event) {
+                    event.preventDefault();
+                }
+
+                Dashboard.showLoadingMsg();
+                return ApiClient.getPluginConfiguration(PluginId).then(function (cfg) {
+                    cfg.Enabled = byId('Enabled').checked;
+                    cfg.LibraryIds = selectedLibraryIds();
+
+                    var maxAliases = parseInt(byId('MaxAliasesInName').value, 10);
+                    cfg.MaxAliasesInName = isNaN(maxAliases) ? 2 : Math.min(4, Math.max(1, maxAliases));
+
+                    cfg.MergeRemoveOldCollections = byId('MergeRemoveOldCollections').checked;
+                    cfg.SetPosterFromActor = byId('SetPosterFromActor').checked;
+                    cfg.ClearWrongMetadata = byId('ClearWrongMetadata').checked;
+
+                    var minActors = parseInt(byId('MinActorCount').value, 10);
+                    cfg.MinActorCount = isNaN(minActors) ? 3 : Math.min(100, Math.max(1, minActors));
+
+                    // 合并组只通过「艺名合并」区域的接口维护，这里必须原样带回，
+                    // 否则保存设置会把用户配好的组清空。
+                    cfg.Ai = {
+                        Enabled: byId('AiEnabled').checked,
+                        BaseUrl: byId('AiBaseUrl').value.trim() || 'https://opencode.ai/inference/go/openai/v1',
+                        ApiKey: byId('AiApiKey').value.trim(),
+                        Model: byId('AiModel').value.trim() || 'deepseek-v4.1-flash',
+                        UseSessionHeader: byId('AiUseSessionHeader').checked,
+                        TimeoutSeconds: (cfg.Ai && cfg.Ai.TimeoutSeconds) || 60,
+                        MaxActorsPerRequest: (cfg.Ai && cfg.Ai.MaxActorsPerRequest) || 120
+                    };
+
+                    return ApiClient.updatePluginConfiguration(PluginId, cfg).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                }).finally(function () {
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
+            // ---------- 演员列表 ----------
+
+            function renderActors() {
+                var box = byId('ActorList');
+                var keyword = (byId('ActorSearch').value || '').trim().toLowerCase();
+                box.innerHTML = '';
+
+                var visible = actors.filter(function (actor) {
+                    if (!keyword) {
+                        return true;
+                    }
+                    return actor.Name.toLowerCase().indexOf(keyword) >= 0;
+                });
+
+                if (!visible.length) {
+                    var empty = document.createElement('div');
+                    empty.className = 'av-empty';
+                    empty.textContent = actors.length ? '没有匹配的艺名。' : '媒体库里还没有演员，先跑一次媒体库扫描。';
+                    box.appendChild(empty);
+                    return;
+                }
+
+                visible.forEach(function (actor) {
+                    var row = document.createElement('div');
+                    row.className = 'checkboxContainer av-row';
+
+                    var label = document.createElement('label');
+                    label.className = 'emby-checkbox-label';
+
+                    var input = document.createElement('input');
+                    input.type = 'checkbox';
+                    input.setAttribute('is', 'emby-checkbox');
+                    input.checked = selectedActors[actor.Name] === true;
+                    input.addEventListener('change', function () {
+                        if (input.checked) {
+                            selectedActors[actor.Name] = true;
+                        } else {
+                            delete selectedActors[actor.Name];
+                        }
+                    });
+
+                    var span = document.createElement('span');
+                    span.textContent = actor.Name;
+
+                    var count = document.createElement('span');
+                    count.className = 'av-count';
+                    count.textContent = actor.ItemCount + ' 部';
+
+                    if (actor.GroupId) {
+                        var joined = document.createElement('span');
+                        joined.className = 'av-count';
+                        joined.textContent = '已在合并组';
+                        span.appendChild(joined);
+                    }
+
+                    label.appendChild(input);
+                    label.appendChild(span);
+                    label.appendChild(count);
+                    row.appendChild(label);
+                    box.appendChild(row);
+                });
+            }
+
+            function loadActors() {
+                Dashboard.showLoadingMsg();
+                return api('GET', 'AVCollection/Actors').then(function (list) {
+                    actors = list || [];
+                    renderActors();
+                }, function () {
+                    byId('ActorList').textContent = '读取演员列表失败（需要管理员权限）。';
+                }).finally(function () {
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
+            // ---------- 合并组 ----------
+
+            function groupLabel(group, actorMap) {
+                var aliases = (group.Aliases || []).slice().sort(function (a, b) {
+                    var ca = actorMap[a] ? actorMap[a].ItemCount : 0;
+                    var cb = actorMap[b] ? actorMap[b].ItemCount : 0;
+                    return cb - ca;
+                });
+
+                if (group.DisplayName) {
+                    return group.DisplayName + '（' + aliases.join(' / ') + '）';
+                }
+
+                return aliases.join(' / ');
+            }
+
+            function renderGroups(groups) {
+                var box = byId('GroupList');
+                box.innerHTML = '';
+
+                if (!groups.length) {
+                    var empty = document.createElement('div');
+                    empty.className = 'av-empty';
+                    empty.textContent = '还没有合并组。';
+                    box.appendChild(empty);
+                    return;
+                }
+
+                var actorMap = {};
+                actors.forEach(function (a) {
+                    actorMap[a.Name] = a;
+                });
+
+                groups.forEach(function (group) {
+                    var card = document.createElement('div');
+                    card.className = 'av-card';
+
+                    var main = document.createElement('div');
+                    main.className = 'av-card-main';
+
+                    var title = document.createElement('div');
+                    title.className = 'av-card-title';
+                    title.textContent = groupLabel(group, actorMap);
+
+                    var note = document.createElement('div');
+                    note.className = 'av-card-note';
+                    note.textContent = '封面艺人：' + (group.PosterAlias || '自动（作品数最多）');
+
+                    main.appendChild(title);
+                    main.appendChild(note);
+
+                    var del = document.createElement('button');
+                    del.setAttribute('is', 'emby-button');
+                    del.type = 'button';
+                    del.className = 'raised small';
+                    var delSpan = document.createElement('span');
+                    delSpan.textContent = '取消合并';
+                    del.appendChild(delSpan);
+                    del.addEventListener('click', function () {
+                        if (!confirm('取消合并「' + groupLabel(group, actorMap) + '」？下次同步会拆回各自的合集。')) {
+                            return;
+                        }
+                        Dashboard.showLoadingMsg();
+                        api('DELETE', 'AVCollection/Groups/' + group.Id).then(function () {
+                            return refreshGroups();
+                        }).finally(function () {
+                            Dashboard.hideLoadingMsg();
+                        });
+                    });
+
+                    card.appendChild(main);
+                    card.appendChild(del);
+                    box.appendChild(card);
+                });
+            }
+
+            function refreshGroups() {
+                return api('GET', 'AVCollection/Groups').then(function (groups) {
+                    renderGroups(groups || []);
+                });
+            }
+
+            function mergeSelected() {
+                var names = Object.keys(selectedActors);
+                if (names.length < 2) {
+                    setStatus('请至少勾选两个艺名再合并。', true);
+                    return;
+                }
+
+                Dashboard.showLoadingMsg();
+                api('POST', 'AVCollection/Groups', {
+                    Aliases: names,
+                    DisplayName: (byId('MergeDisplayName').value || '').trim(),
+                    PosterAlias: (byId('MergePosterAlias').value || '').trim()
+                }).then(function () {
+                    selectedActors = {};
+                    byId('MergeDisplayName').value = '';
+                    byId('MergePosterAlias').value = '';
+                    setStatus('合并组已保存：' + names.join(' + ') + '。点「立即同步」让合集生效。');
+                    return refreshGroups().then(function () {
+                        return loadActors();
+                    });
+                }, function (xhr) {
+                    setStatus('保存合并组失败：' + (xhr && xhr.responseText ? xhr.responseText : '未知错误'), true);
+                }).finally(function () {
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
+            // ---------- AI 建议 ----------
+
+            function renderSuggestions(result) {
+                var box = byId('SuggestResult');
+                box.innerHTML = '';
+
+                if (result.error) {
+                    var err = document.createElement('div');
+                    err.className = 'av-empty';
+                    err.textContent = result.error;
+                    box.appendChild(err);
+                    return;
+                }
+
+                var list = result.suggestions || [];
+                if (!list.length) {
+                    var none = document.createElement('div');
+                    none.className = 'av-empty';
+                    none.textContent = '模型没有找到可能是同一个人的艺名。';
+                    box.appendChild(none);
+                    return;
+                }
+
+                list.forEach(function (item) {
+                    var card = document.createElement('div');
+                    card.className = 'av-card';
+
+                    var main = document.createElement('div');
+                    main.className = 'av-card-main';
+
+                    var title = document.createElement('div');
+                    title.className = 'av-card-title';
+                    title.textContent = (item.aliases || []).join(' / ');
+
+                    var note = document.createElement('div');
+                    note.className = 'av-card-note';
+                    note.textContent = item.reason || '';
+
+                    main.appendChild(title);
+                    main.appendChild(note);
+
+                    var adopt = document.createElement('button');
+                    adopt.setAttribute('is', 'emby-button');
+                    adopt.type = 'button';
+                    adopt.className = 'raised small';
+                    var span = document.createElement('span');
+                    span.textContent = '采纳';
+                    adopt.appendChild(span);
+                    adopt.addEventListener('click', function () {
+                        Dashboard.showLoadingMsg();
+                        api('POST', 'AVCollection/Groups', { Aliases: item.aliases }).then(function () {
+                            card.remove();
+                            setStatus('已采纳建议：' + (item.aliases || []).join(' + ') + '。点「立即同步」让合集生效。');
+                            return refreshGroups().then(function () {
+                                return loadActors();
+                            });
+                        }, function (xhr) {
+                            setStatus('采纳失败：' + (xhr && xhr.responseText ? xhr.responseText : '未知错误'), true);
+                        }).finally(function () {
+                            Dashboard.hideLoadingMsg();
+                        });
+                    });
+
+                    card.appendChild(main);
+                    card.appendChild(adopt);
+                    box.appendChild(card);
+                });
+            }
+
+            function suggest() {
+                Dashboard.showLoadingMsg();
+                byId('SuggestResult').textContent = '正在请求模型…';
+                api('POST', 'AVCollection/Suggest').then(function (result) {
+                    renderSuggestions(result || {});
+                }, function () {
+                    byId('SuggestResult').textContent = '请求失败，请检查 API Key 与接口地址。';
+                }).finally(function () {
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
+            // ---------- 运行 ----------
+
+            function preview() {
+                Dashboard.showLoadingMsg();
+                setStatus('正在计算…');
+                api('POST', 'AVCollection/Preview').then(function (result) {
+                    var text = (result && result.summary) || '完成';
+                    var details = (result && result.details) || [];
+                    setStatus(text + (details.length ? '\n\n' + details.join('\n') : ''));
+                }, function () {
+                    setStatus('预览失败，请确认当前账号是管理员。', true);
+                }).finally(function () {
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
+            function runNow() {
+                Dashboard.showLoadingMsg();
+                setStatus('正在同步，合集较多时可能要一两分钟…');
+                api('POST', 'AVCollection/Run').then(function (result) {
+                    setStatus((result && result.summary) || '完成');
+                    return loadActors();
+                }, function () {
+                    setStatus('同步失败，请确认当前账号是管理员。', true);
+                }).finally(function () {
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
+            // ---------- 初始化 ----------
+
+            document.querySelector('#AVCollectionConfigPage').addEventListener('pageshow', function () {
+                page = this;
+                Dashboard.showLoadingMsg();
+
+                loadConfig()
+                    .then(function () {
+                        return refreshGroups();
+                    })
+                    .then(function () {
+                        return loadActors();
+                    })
+                    .finally(function () {
+                        Dashboard.hideLoadingMsg();
+                    });
+            });
+
+            document.querySelector('#AVCollectionForm').addEventListener('submit', save);
+
+            document.querySelector('#ReloadLibraries').addEventListener('click', function () {
+                loadLibraries(selectedLibraryIds());
+            });
+
+            document.querySelector('#ReloadActors').addEventListener('click', loadActors);
+            document.querySelector('#ActorSearch').addEventListener('input', renderActors);
+            document.querySelector('#MergeSelected').addEventListener('click', mergeSelected);
+            document.querySelector('#SuggestButton').addEventListener('click', suggest);
+            document.querySelector('#PreviewButton').addEventListener('click', preview);
+            document.querySelector('#RunButton').addEventListener('click', runNow);
+            document.querySelector('#OpenTasks').addEventListener('click', function () {
+                Dashboard.navigate('scheduledtasks.html');
+            });
+        })();
+    </script>
+</div>
+</body>
+</html>

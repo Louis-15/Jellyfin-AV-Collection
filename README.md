@@ -1,0 +1,70 @@
+# AV Collection
+
+一个 **Jellyfin 12.2** 插件：按演员自动维护合集，自动用演员头像做封面，并支持把**同一位演员的多个艺名**合并到一个合集。
+
+## 三个功能
+
+1. **自动按演员建合集** —— 扫描目标影视库，把每位演员的影片归到他自己的 Jellyfin 合集里，每次计划任务增量同步。
+2. **自动封面** —— 用演员头像作为合集封面；头像没变就不重复上传。
+3. **艺名合并** —— 同一个人用多个艺名出道（例如「小野夕子」和「葵」）时，可以合并成一个合集，
+   合集名默认按作品数取最活跃的两个艺名：`小野夕子 / 葵`。
+   既可以在设置页手动勾选合并，也可以让 AI 给出候选建议后再采纳。
+
+## 安装
+
+在 Jellyfin 里添加插件仓库：
+
+```
+https://raw.githubusercontent.com/Louis-15/Jellyfin-AV-Collection/main/manifest.json
+```
+
+然后：控制台 → 插件 → 目录 → 找到 **AV Collection** → 安装 → 重启 Jellyfin。
+
+也可以手动安装：下载 Release 里的 `av-collection_<version>.zip`，解压到
+`/config/plugins/AV Collection_<version>/`，重启。
+
+## 使用
+
+插件设置页（控制台 → 插件 → AV Collection → 设置）：
+
+- **目标影视库**：不勾任何库时，自动处理所有「电影」类型的库。
+- **合集规则**：合集名里最多显示几个艺名、合并后是否删除旧合集、是否用演员头像做封面、是否清理误匹配的元数据。
+- **艺名合并**：勾选两个以上艺名 → 点「合并选中的艺名」→ 点「立即同步」。
+- **AI 建议**：填 OpenAI 兼容接口（默认 Open Code 网关）→ 点「让 AI 找同一个人」→ 逐条「采纳」。
+- **手动运行**：「预览」只计算结果不写库；「立即同步」立即执行一次完整同步。
+
+计划任务默认每 6 小时跑一次。
+
+## 图片与元数据说明
+
+- 封面取自演员（Person）条目已有的头像。如果演员没有头像，合集也不会设置封面。
+- Jellyfin 偶尔会把演员合集匹配成同名电影（例如「かすみ」→《真田女忍者霞传》）。
+  「清理误匹配的元数据」会清掉错误的简介、首播日期、ProviderIds 和背景图。
+
+## 构建
+
+```powershell
+dotnet build .\Jellyfin.Plugin.AVCollection\Jellyfin.Plugin.AVCollection.csproj -c Release
+dotnet test  .\tests\Jellyfin.Plugin.AVCollection.Tests\Jellyfin.Plugin.AVCollection.Tests.csproj -c Release
+```
+
+打包（生成 `artifacts/av-collection_<version>.zip`）：
+
+```powershell
+.\build.ps1
+```
+
+发版（自动改版本号 → commit → tag → push，CI 负责测试/打包/写 checksum/发 Release）：
+
+```powershell
+.\release.ps1 -Version 1.0.1.0 -Changelog "改了什么"
+```
+
+## 实现要点
+
+- 合集通过 Jellyfin 的 `ICollectionManager` 创建与维护，不直接写数据库。
+- 演员信息从 `IPeopleRepository.GetPeopleByItems` 批量读取（Jellyfin 12 起 `BaseItem` 上不再有 `People`）。
+- 查询影片时 `CollapseBoxSetItems = false`，否则"已进合集"的影片会从结果里消失，导致合集被清空。
+- 运行期状态（分组 → 合集 Id）存在 `<data>/av-collection/state.json`，
+  不能只靠合集名找合集：合并组的名字会随作品数变化。
+- 设置页的 `<style>` 必须写在 `<body>` 里，Jellyfin 只搬 `<body>` 子节点进 SPA。

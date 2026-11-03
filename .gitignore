@@ -1,0 +1,12 @@
+## Build output
+bin/
+obj/
+artifacts/
+
+## User-specific files
+*.user
+*.suo
+.vs/
+
+## Test results
+TestResults/
