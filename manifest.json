@@ -9,12 +9,12 @@
     "imageUrl": "https://raw.githubusercontent.com/Louis-15/Jellyfin-AV-Collection/main/logo.png",
     "versions": [
       {
-        "version": "1.0.0.8",
-        "changelog": "Release 1.0.0.8\n\n封面取图补齐旧脚本的能力：演员头像路径是远程 URL（Jellyfin 还没缓存到本地）时走 HttpClient 下载后再上传，本地文件仍直接读盘；封面日志带上字节数便于核对。",
+        "version": "1.0.0.9",
+        "changelog": "Release 1.0.0.9\n\nAI 设置独立成组并内置供应商（Open Code / 自定义），Open Code 的地址与 x-opencode-session 请求头由代码固定、不再作为选项；「艺名合并」按钮行重排为 重新扫描演员 / 合并选中的艺名 / AI 智能合并 / 预览（不写库）/ 立即同步。",
         "targetAbi": "12.2.0.0",
-        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.0.8/av-collection_1.0.0.8.zip",
-        "checksum": "4f98c230dc5cd51ffcfaaa5011a16823",
-        "timestamp": "2026-11-03T15:32:16Z"
+        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.0.9/av-collection_1.0.0.9.zip",
+        "checksum": "c0dd7485843506c2302c9ab4029bb1e6",
+        "timestamp": "2026-11-03T15:56:33Z"
       }
     ]
   }
