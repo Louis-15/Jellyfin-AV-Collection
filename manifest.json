@@ -9,12 +9,12 @@
     "imageUrl": "https://raw.githubusercontent.com/Louis-15/Jellyfin-AV-Collection/main/logo.png",
     "versions": [
       {
-        "version": "1.0.1.0",
-        "changelog": "Release 1.0.1.0\n\nAI 设置新增「测试连接」按钮（极短请求验证地址/Key/模型，返回耗时与真实错误）；默认超时 60→300 秒（实测推理模型判断 20 位演员需 149 秒，60 秒必然超时）；超时改为写日志并给出可操作提示；x-opencode-session 改用固定值以命中网关缓存；HTTP 错误码翻译成中文说明。",
+        "version": "1.0.1.1",
+        "changelog": "Release 1.0.1.1\n\n测试连接的 max_tokens 从 16 提到 64：16 个 token 会被推理模型的 reasoning 全部吃掉，实测 content 返回空串。",
         "targetAbi": "12.2.0.0",
-        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.1.0/av-collection_1.0.1.0.zip",
-        "checksum": "c4d751fa8b6525471bd6ecf117870f8b",
-        "timestamp": "2026-11-03T16:16:18Z"
+        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.1.1/av-collection_1.0.1.1.zip",
+        "checksum": "c23681dd1fd707011c1a971ff0e77528",
+        "timestamp": "2026-11-03T16:20:49Z"
       }
     ]
   }
