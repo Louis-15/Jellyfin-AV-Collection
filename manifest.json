@@ -9,12 +9,12 @@
     "imageUrl": "https://raw.githubusercontent.com/Louis-15/Jellyfin-AV-Collection/main/logo.png",
     "versions": [
       {
-        "version": "1.0.2.8",
-        "changelog": "Release 1.0.2.8\n\n「艺名合并」区新增「立即同步」（三处入口共用一套逻辑，结果写回各自分区）",
+        "version": "1.0.2.9",
+        "changelog": "Release 1.0.2.9\n\n分区标题「手动运行」改为「预览与同步」",
         "targetAbi": "12.2.0.0",
-        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.2.8/av-collection_1.0.2.8.zip",
-        "checksum": "d7e7fe83505fddf00f361bc2543781d2",
-        "timestamp": "2026-11-03T18:11:21Z"
+        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.2.9/av-collection_1.0.2.9.zip",
+        "checksum": "ae890475ecfbfeb39a6e75f650fbbe45",
+        "timestamp": "2026-11-03T18:15:20Z"
       }
     ]
   }
