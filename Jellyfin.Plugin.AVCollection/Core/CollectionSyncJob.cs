@@ -90,6 +90,125 @@ public sealed class CollectionSyncJob
         }
     }
 
+    /// <summary>
+    /// 局部同步：只重算指定演员的合集。
+    ///
+    /// 与 <see cref="RunAsync"/> 的差别（都是刻意的）：
+    /// 1. <b>不扫全库</b> —— 只查这些演员名下的影片，耗时与库大小无关；
+    /// 2. <b>不做最少演员数保护</b> —— 那是对「整库扫到 0 个演员」的兜底，
+    ///    局部同步天生只有一两位演员，套上去会永远中止；
+    /// 3. <b>不删被吸收的旧合集、不跑校验轮</b> —— 那些是全局动作，
+    ///    实时流程只负责把新片塞进它该在的合集。
+    /// </summary>
+    /// <param name="actorNames">新片涉及的演员名（Jellyfin 里的 Person 名字）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>同步摘要。</returns>
+    public async Task<SyncSummary> RunForActorsAsync(
+        IReadOnlyCollection<string> actorNames,
+        CancellationToken cancellationToken)
+    {
+        var summary = new SyncSummary();
+        var config = Plugin.Current;
+
+        if (!config.Enabled)
+        {
+            summary.Skipped = "插件已禁用";
+            return summary;
+        }
+
+        var libraries = _index.ResolveLibraries(config.LibraryIds);
+        if (libraries.Count == 0)
+        {
+            summary.Skipped = "没有配置目标影视库";
+            return summary;
+        }
+
+        await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            summary.LibraryCount = libraries.Count;
+
+            var actors = _index.ScanActors(actorNames, libraries, cancellationToken);
+            summary.ActorCount = actors.Count;
+
+            if (actors.Count == 0)
+            {
+                summary.Skipped = "涉及的演员在目标库里还没有作品";
+                return summary;
+            }
+
+            // 译名：只翻译缺的，已有缓存不会重复送审。
+            IReadOnlyDictionary<string, string>? displayNames = null;
+            if (config.Ai?.TranslateNames == true)
+            {
+                try
+                {
+                    await _translator
+                        .TranslateAsync(actors.Select(a => a.Name), config.Ai, force: false, cancellationToken)
+                        .ConfigureAwait(false);
+                    displayNames = _translations.All;
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _log.Error("演员名翻译失败，本次用日文原名命名合集", ex);
+                }
+            }
+
+            var plans = CollectionPlanner.BuildPlans(actors, config, displayNames);
+            summary.PlanCount = plans.Count;
+
+            var claimed = new HashSet<Guid>();
+            var absorbees = new List<BoxSet>();
+
+            foreach (var plan in plans)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    var outcome = await _writer
+                        .ApplyAsync(plan, _state, claimed, absorbees, cancellationToken)
+                        .ConfigureAwait(false);
+
+                    switch (outcome)
+                    {
+                        case CollectionOutcome.Created:
+                            summary.Created++;
+                            break;
+                        case CollectionOutcome.Synced:
+                            summary.Synced++;
+                            break;
+                        case CollectionOutcome.Failed:
+                            summary.Failed++;
+                            break;
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    summary.Failed++;
+                    _log.Error($"实时同步：处理合集「{plan.DisplayName}」时出错", ex);
+                }
+
+                summary.Details.Add($"{plan.DisplayName}：{plan.ItemIds.Count} 部");
+            }
+
+            _state.Save();
+            return summary;
+        }
+        finally
+        {
+            Gate.Release();
+        }
+    }
+
     private async Task<SyncSummary> RunCoreAsync(
         PluginConfiguration config,
         bool dryRun,

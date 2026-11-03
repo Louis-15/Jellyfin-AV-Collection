@@ -126,6 +126,93 @@ public sealed class ActorIndex
     }
 
     /// <summary>
+    /// 只扫描指定演员名下的作品。
+    ///
+    /// 「实时入库」不能用全库扫描：一部新片进来只需要更新它涉及的一两位演员，
+    /// 把整个库重扫一遍既慢又会牵连无关合集。这里用
+    /// <see cref="InternalItemsQuery.Person"/> 让数据库按演员名过滤。
+    /// </summary>
+    /// <param name="actorNames">要扫描的演员名（Jellyfin 里的 Person 名字）。</param>
+    /// <param name="libraryIds">要扫的媒体库。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>这些演员及其作品；按名字排序。</returns>
+    public IReadOnlyList<ActorInfo> ScanActors(
+        IReadOnlyCollection<string> actorNames,
+        IReadOnlyList<Guid> libraryIds,
+        CancellationToken cancellationToken)
+    {
+        var wanted = actorNames
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Select(n => n.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var actors = new Dictionary<string, ActorInfo>(StringComparer.Ordinal);
+
+        if (wanted.Count == 0)
+        {
+            return [];
+        }
+
+        foreach (var libraryId in libraryIds)
+        {
+            foreach (var name in wanted)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // InternalItemsQuery 只支持单个 Person 名，逐个查即可：
+                // 实时流程涉及的演员通常只有一两位。
+                var items = _libraryManager.GetItemList(new InternalItemsQuery
+                {
+                    Recursive = true,
+                    IncludeItemTypes = [BaseItemKind.Movie],
+                    ParentId = libraryId,
+                    CollapseBoxSetItems = false,
+                    Person = name
+                });
+
+                if (items.Count == 0)
+                {
+                    continue;
+                }
+
+                // 二次核实：确认这些片子在 People 里确实挂着这个演员。
+                // 把 A 的片子塞进 B 的合集是不可接受的错误，多花一次批量查询换确定性。
+                var people = _peopleRepository.GetPeopleByItems(items.Select(i => i.Id).ToList());
+
+                var verified = items
+                    .Where(item => people.TryGetValue(item.Id, out var cast)
+                                   && cast is not null
+                                   && cast.Any(p => p.Type == PersonKind.Actor
+                                                    && string.Equals((p.Name ?? string.Empty).Trim(), name, StringComparison.Ordinal)))
+                    .ToList();
+
+                if (verified.Count == 0)
+                {
+                    continue;
+                }
+
+                if (!actors.TryGetValue(name, out var actor))
+                {
+                    actor = new ActorInfo(name);
+                    actors[name] = actor;
+                }
+
+                foreach (var item in verified)
+                {
+                    actor.AddItem(item.Id, item.Name, libraryId);
+                }
+            }
+        }
+
+        ResolvePersonIds(actors);
+
+        return actors.Values
+            .OrderBy(a => a.Name, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    /// <summary>
     /// 按演员名解析真正的 Person 条目 Id。
     ///
     /// 为什么不能直接用 <c>PersonInfo.Id</c>：

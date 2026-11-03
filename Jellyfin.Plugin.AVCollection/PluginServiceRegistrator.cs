@@ -30,5 +30,8 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
         services.AddSingleton<AiNameTranslator>();
 
         services.AddSingleton<ActorCollectionSyncTask>();
+
+        // 实时入库监听：新片刮削完成后只更新它涉及的演员合集，不扫全库。
+        services.AddHostedService<ItemWatchService>();
     }
 }

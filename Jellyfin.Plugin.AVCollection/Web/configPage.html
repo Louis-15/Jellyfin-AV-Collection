@@ -428,6 +428,18 @@
                     <div class="av-group-body">
                         <div class="checkboxContainer checkboxContainer-withDescription">
                             <label class="emby-checkbox-label">
+                                <input id="RealtimeSync" type="checkbox" is="emby-checkbox" />
+                                <span>新片入库时立即同步</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                每 30 秒检查一次最近 6 小时入库、且已完成刮削的影片，
+                                只更新这些片子涉及的演员合集，不扫全库。
+                                下方「立即同步」和计划任务仍然保留，作为兜底。
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
                                 <input id="SetPosterFromActor" type="checkbox" is="emby-checkbox" />
                                 <span>用演员头像作为合集封面</span>
                             </label>
@@ -727,6 +739,7 @@
                     var maxAliases = cfg.MaxAliasesInName || 2;
                     byId('MaxAliasesInName').value = maxAliases;
                     byId('MergeRemoveOldCollections').checked = cfg.MergeRemoveOldCollections !== false;
+                    byId('RealtimeSync').checked = cfg.RealtimeSync !== false;
                     byId('SetPosterFromActor').checked = cfg.SetPosterFromActor !== false;
                     byId('ClearWrongMetadata').checked = cfg.ClearWrongMetadata !== false;
                     byId('MinActorCount').value = cfg.MinActorCount || 3;
@@ -759,6 +772,7 @@
                     cfg.MaxAliasesInName = isNaN(maxAliases) ? 2 : Math.min(4, Math.max(1, maxAliases));
 
                     cfg.MergeRemoveOldCollections = byId('MergeRemoveOldCollections').checked;
+                    cfg.RealtimeSync = byId('RealtimeSync').checked;
                     cfg.SetPosterFromActor = byId('SetPosterFromActor').checked;
                     cfg.ClearWrongMetadata = byId('ClearWrongMetadata').checked;
 

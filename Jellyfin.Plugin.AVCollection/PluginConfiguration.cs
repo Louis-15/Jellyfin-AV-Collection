@@ -60,6 +60,15 @@ public class PluginConfiguration : BasePluginConfiguration
     /// </summary>
     public int MinActorCount { get; set; } = 3;
 
+    /// <summary>
+    /// 是否在发现新片入库时立即更新对应演员的合集（默认开启）。
+    ///
+    /// 开启后插件每 30 秒检查一次「最近 6 小时内入库且已刮削完成」的影片，
+    /// 只对这些片子涉及的演员做局部同步，**不扫全库**。
+    /// 计划任务仍然保留，作为漏网条目的兜底。
+    /// </summary>
+    public bool RealtimeSync { get; set; } = true;
+
     /// <summary>同步后的校验轮数（防御 CollectionPostScanTask 清理"空合集"的竞态）。</summary>
     public int VerifyRounds { get; set; } = 3;
 
