@@ -9,12 +9,12 @@
     "imageUrl": "https://raw.githubusercontent.com/Louis-15/Jellyfin-AV-Collection/main/logo.png",
     "versions": [
       {
-        "version": "1.0.0.3",
-        "changelog": "Release 1.0.0.3\n\n文案微调：合并名说明改为取最活跃的艺名，演员列表用「· 已在合并组」分隔，避免和作品数连读。",
+        "version": "1.0.0.4",
+        "changelog": "Release 1.0.0.4\n\n修设置页显示没有找到媒体库：ApiClient.ajax 对 GET 不返回解析后的 JSON，改用 ApiClient.getJSON；GUID 比较增加连字符/大小写归一化。",
         "targetAbi": "12.2.0.0",
-        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.0.3/av-collection_1.0.0.3.zip",
-        "checksum": "8ff607245d310b5eda5831751a4ec668",
-        "timestamp": "2026-11-03T14:19:41Z"
+        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.0.4/av-collection_1.0.0.4.zip",
+        "checksum": "571ffa56d556d86ed19d21a21860d383",
+        "timestamp": "2026-11-03T14:33:34Z"
       }
     ]
   }
