@@ -342,17 +342,6 @@
                             </div>
                         </div>
 
-                        <div class="checkboxContainer checkboxContainer-withDescription">
-                            <label class="emby-checkbox-label">
-                                <input id="ClearWrongMetadata" type="checkbox" is="emby-checkbox" />
-                                <span>清理误匹配的元数据</span>
-                            </label>
-                            <div class="fieldDescription checkboxFieldDescription">
-                                Jellyfin 偶尔会把演员合集匹配成同名电影（例如「かすみ」→《真田女忍者霞传》），
-                                勾选后会清掉错误的简介、首播日期和背景图。
-                            </div>
-                        </div>
-
                         <div class="inputContainer">
                             <label class="inputLabel inputLabelUnfocused" for="AiTimeoutSeconds">超时（秒）</label>
                             <input is="emby-input" id="AiTimeoutSeconds" type="number" min="30" max="900" step="30" />
@@ -411,26 +400,6 @@
 
                         <div id="ActorList" class="av-scroll">正在加载演员…</div>
 
-                        <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="MergeDisplayName">
-                                合集名（可留空）
-                            </label>
-                            <input is="emby-input" id="MergeDisplayName" type="text" />
-                            <div class="fieldDescription">
-                                留空则自动按作品数取最活跃的几个艺名拼成「A / B」。
-                            </div>
-                        </div>
-
-                        <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="MergePosterAlias">
-                                封面用哪个艺名的头像（可留空）
-                            </label>
-                            <input is="emby-input" id="MergePosterAlias" type="text" />
-                            <div class="fieldDescription">
-                                留空则用作品数最多的那个艺名。
-                            </div>
-                        </div>
-
                         <div class="av-actions">
                             <button is="emby-button" type="button" id="MergeSelected" class="raised">
                                 <span>合并选中的艺名</span>
@@ -453,7 +422,18 @@
                                 <span>用演员头像作为合集封面</span>
                             </label>
                             <div class="fieldDescription checkboxFieldDescription">
-                                合并组使用「封面艺名」那一张头像；未指定时用作品数最多的艺名。
+                                合并组用作品数最多的那个艺名的头像。
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="ClearWrongMetadata" type="checkbox" is="emby-checkbox" />
+                                <span>清理误匹配的元数据</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Jellyfin 偶尔会把演员合集匹配成同名电影（例如「かすみ」→《真田女忍者霞传》），
+                                勾选后会清掉错误的简介、首播日期和背景图。
                             </div>
                         </div>
 
@@ -956,14 +936,15 @@
                 }
 
                 Dashboard.showLoadingMsg();
+                // 合集名与封面艺人不再让用户填：默认就是「按作品数取最活跃的艺名拼成 A / B」
+                // 和「用作品数最多的那个艺名的头像」，这正是绝大多数情况下想要的。
+                // 后端字段保留（已有合并组可能存过手工值），新建时一律留空走自动。
                 apiSend('POST', 'AVCollection/Groups', {
                     Aliases: names,
-                    DisplayName: (byId('MergeDisplayName').value || '').trim(),
-                    PosterAlias: (byId('MergePosterAlias').value || '').trim()
+                    DisplayName: '',
+                    PosterAlias: ''
                 }).then(function () {
                     selectedActors = {};
-                    byId('MergeDisplayName').value = '';
-                    byId('MergePosterAlias').value = '';
                     setStatusIn('MergeStatus', '合并组已保存：' + names.join(' + ') + '。到「手动运行」点「立即同步」让合集真正合并。');
                     return refreshGroups().then(function () {
                         return loadActors();
