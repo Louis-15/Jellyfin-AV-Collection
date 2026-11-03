@@ -252,126 +252,10 @@
                 </fieldset>
 
                 <fieldset class="av-group">
-                    <legend class="av-group-title">合集规则</legend>
-                    <div class="av-group-body">
-                        <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="MaxAliasesInName">合集名中最多显示几个艺名</label>
-                            <input is="emby-input" id="MaxAliasesInName" type="number" min="1" max="4" step="1" />
-                            <div class="fieldDescription">
-                                按作品数从多到少取。设为 2 时，「小野夕子」和「葵」合并后合集名是「小野夕子 / 葵」。
-                            </div>
-                        </div>
-
-                        <div class="checkboxContainer checkboxContainer-withDescription">
-                            <label class="emby-checkbox-label">
-                                <input id="MergeRemoveOldCollections" type="checkbox" is="emby-checkbox" />
-                                <span>合并后删除旧合集</span>
-                            </label>
-                            <div class="fieldDescription checkboxFieldDescription">
-                                把「葵」「小野夕子」并进「小野夕子 / 葵」之后，删掉前两个只剩单部影片的空壳合集。
-                                不勾选则保留，由你自己清理。
-                            </div>
-                        </div>
-
-                        <div class="checkboxContainer checkboxContainer-withDescription">
-                            <label class="emby-checkbox-label">
-                                <input id="SetPosterFromActor" type="checkbox" is="emby-checkbox" />
-                                <span>用演员头像作为合集封面</span>
-                            </label>
-                            <div class="fieldDescription checkboxFieldDescription">
-                                合并组使用「封面艺名」那一张头像；未指定时用作品数最多的艺名。
-                            </div>
-                        </div>
-
-                        <div class="checkboxContainer checkboxContainer-withDescription">
-                            <label class="emby-checkbox-label">
-                                <input id="ClearWrongMetadata" type="checkbox" is="emby-checkbox" />
-                                <span>清理误匹配的元数据</span>
-                            </label>
-                            <div class="fieldDescription checkboxFieldDescription">
-                                Jellyfin 偶尔会把演员合集匹配成同名电影（例如「かすみ」→《真田女忍者霞传》），
-                                勾选后会清掉错误的简介、首播日期和背景图。
-                            </div>
-                        </div>
-
-                        <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="MinActorCount">最少演员数保护</label>
-                            <input is="emby-input" id="MinActorCount" type="number" min="1" max="100" step="1" />
-                            <div class="fieldDescription">
-                                媒体库扫描期间演员信息可能为空。扫到的演员少于这个数量时直接中止，避免把合集清空。
-                            </div>
-                        </div>
-                    </div>
-                </fieldset>
-
-                <fieldset class="av-group">
-                    <legend class="av-group-title">艺名合并</legend>
+                    <legend class="av-group-title">AI 接口</legend>
                     <div class="av-group-body">
                         <p class="fieldDescription">
-                            把「其实是同一个人、但用了不同艺名」的演员勾在一起，点「合并选中的艺名」。
-                            合并后他们共用同一个合集，影片也会并到一起。
-                        </p>
-
-                        <div class="av-actions">
-                            <input is="emby-input" id="ActorSearch" class="av-search" type="text"
-                                   placeholder="搜索艺名…" />
-                        </div>
-
-                        <div id="ActorList" class="av-scroll">正在加载演员…</div>
-
-                        <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="MergeDisplayName">
-                                合集名（可留空）
-                            </label>
-                            <input is="emby-input" id="MergeDisplayName" type="text" />
-                            <div class="fieldDescription">
-                                留空则自动按作品数取最活跃的几个艺名拼成「A / B」。
-                            </div>
-                        </div>
-
-                        <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="MergePosterAlias">
-                                封面用哪个艺名的头像（可留空）
-                            </label>
-                            <input is="emby-input" id="MergePosterAlias" type="text" />
-                            <div class="fieldDescription">
-                                留空则用作品数最多的那个艺名。
-                            </div>
-                        </div>
-
-                        <div class="av-actions">
-                            <!--
-                                按钮顺序：重新扫描 → 合并 → 预览 → 立即同步。
-                                「立即同步」是从最多作品数的角度看的最后一步：合并只改配置，
-                                合集要同步才会真正变化，所以它必须和合并按钮挨在一起。
-                            -->
-                            <button is="emby-button" type="button" id="ReloadActors" class="raised small">
-                                <span>重新扫描演员</span>
-                            </button>
-                            <button is="emby-button" type="button" id="MergeSelected" class="raised">
-                                <span>合并选中的艺名</span>
-                            </button>
-                            <button is="emby-button" type="button" id="PreviewButton" class="raised small">
-                                <span>预览（不写库）</span>
-                            </button>
-                            <button is="emby-button" type="button" id="MergeRunNow" class="raised button-submit">
-                                <span>立即同步</span>
-                            </button>
-                        </div>
-
-                        <!-- 就地显示运行结果，省得用户滚到最下面才看到成功/失败。 -->
-                        <div class="av-status" id="MergeRunStatus"></div>
-
-                        <div class="av-hint">已配置的合并组：</div>
-                        <div id="GroupList">正在加载…</div>
-                    </div>
-                </fieldset>
-
-                <fieldset class="av-group">
-                    <legend class="av-group-title">AI 设置（可选）</legend>
-                    <div class="av-group-body">
-                        <p class="fieldDescription">
-                            用 AI 把日本演员名翻译成中文名，<strong>只用来给合集命名</strong>。
+                            只用于<strong>把演员名翻译成中文</strong>，好让合集用中文名命名。
                             演员条目本身的名字不会被修改（那是刮削插件的职责）。
                         </p>
 
@@ -382,17 +266,6 @@
                             </label>
                             <div class="fieldDescription checkboxFieldDescription">
                                 关闭后「测试连接」和「翻译演员名」都会提示未启用。
-                            </div>
-                        </div>
-
-                        <div class="checkboxContainer checkboxContainer-withDescription">
-                            <label class="emby-checkbox-label">
-                                <input id="AiTranslateNames" type="checkbox" is="emby-checkbox" />
-                                <span>用中文名命名合集</span>
-                            </label>
-                            <div class="fieldDescription checkboxFieldDescription">
-                                开启后合集名会用译名（例如「つばさ舞」→「翼舞」）。
-                                没有译名的演员回退成原名，不会出现空名字。
                             </div>
                         </div>
 
@@ -432,44 +305,76 @@
                             </div>
                         </div>
 
-                        <div class="inputContainer">
-                            <label class="inputLabel inputLabelUnfocused" for="AiTimeoutSeconds">超时（秒）</label>
-                            <input is="emby-input" id="AiTimeoutSeconds" type="number" min="30" max="900" step="30" />
-                            <div class="fieldDescription">
-                                一次翻译 25 个名字通常要 1-2 分钟，默认 300 秒。
-                            </div>
-                        </div>
-
                         <div class="av-actions">
                             <button is="emby-button" type="button" id="TestAiButton" class="raised">
                                 <span>测试连接</span>
                             </button>
-                            <button is="emby-button" type="button" id="TranslateButton" class="raised">
-                                <span>翻译演员名</span>
-                            </button>
                         </div>
 
                         <div class="av-status" id="AiTestStatus"></div>
-
-                        <div class="av-hint">
-                            建议先点「测试连接」确认 Key 和地址没问题，再点「翻译演员名」。
-                            译名会缓存下来，并在下方列出，可以逐条修改。
-                        </div>
                     </div>
                 </fieldset>
 
                 <fieldset class="av-group">
-                    <legend class="av-group-title">演员名译名</legend>
+                    <legend class="av-group-title">合集命名</legend>
                     <div class="av-group-body">
                         <p class="fieldDescription">
-                            AI 翻译的结果不会 100% 准确。下表把「日文原名 → 中文名」逐条列出，
-                            你可以直接改，改过的名字不会被后续翻译覆盖。
+                            合集叫什么名字、名字里放几个艺名，都在这一块设置。
+                            改完译名后要回到「手动运行」点「立即同步」，合集才会真正改名。
                         </p>
 
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="MaxAliasesInName">合集名中最多显示几个艺名</label>
+                            <input is="emby-input" id="MaxAliasesInName" type="number" min="1" max="4" step="1" />
+                            <div class="fieldDescription">
+                                按作品数从多到少取。设为 2 时，「小野夕子」和「葵」合并后合集名是「小野夕子 / 葵」。
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="AiTranslateNames" type="checkbox" is="emby-checkbox" />
+                                <span>用中文名命名合集</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                开启后合集名会用译名（例如「つばさ舞」→「翼舞」）。
+                                没有译名的演员回退成原名，不会出现空名字。
+                            </div>
+                        </div>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="ClearWrongMetadata" type="checkbox" is="emby-checkbox" />
+                                <span>清理误匹配的元数据</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                Jellyfin 偶尔会把演员合集匹配成同名电影（例如「かすみ」→《真田女忍者霞传》），
+                                勾选后会清掉错误的简介、首播日期和背景图。
+                            </div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="AiTimeoutSeconds">超时（秒）</label>
+                            <input is="emby-input" id="AiTimeoutSeconds" type="number" min="30" max="900" step="30" />
+                            <div class="fieldDescription">
+                                AI 翻译请求的超时时间。一次翻译 25 个名字通常要 1-2 分钟，默认 300 秒。
+                            </div>
+                        </div>
+
                         <div class="av-actions">
+                            <button is="emby-button" type="button" id="TranslateButton" class="raised">
+                                <span>翻译演员名</span>
+                            </button>
                             <button is="emby-button" type="button" id="ReloadTranslations" class="raised small">
                                 <span>刷新译名表</span>
                             </button>
+                        </div>
+
+                        <div class="av-status" id="TranslateStatus"></div>
+
+                        <div class="av-hint">
+                            译名会缓存下来，逐条列在下面，可以直接改，失焦即保存。
+                            AI 翻译不可能 100% 准确，改过的名字不会被后续翻译覆盖。
                         </div>
 
                         <div id="TranslationList" class="av-scroll">正在加载…</div>
@@ -477,17 +382,109 @@
                 </fieldset>
 
                 <fieldset class="av-group">
-                    <legend class="av-group-title">手动运行</legend>
+                    <legend class="av-group-title">艺名合并</legend>
                     <div class="av-group-body">
+                        <p class="fieldDescription">
+                            把「其实是同一个人、但用了不同艺名」的演员勾在一起，点「合并选中的艺名」。
+                            合并后他们共用同一个合集，影片也会并到一起。
+                            合并只改配置，要让合集真正变化，需要到「手动运行」点「立即同步」。
+                        </p>
+
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="MergeRemoveOldCollections" type="checkbox" is="emby-checkbox" />
+                                <span>合并后删除旧合集</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                把「葵」「小野夕子」并进「小野夕子 / 葵」之后，删掉前两个只剩单部影片的空壳合集。
+                                不勾选则保留，由你自己清理。
+                            </div>
+                        </div>
+
                         <div class="av-actions">
-                            <button is="emby-button" type="button" id="OpenTasks" class="raised small">
-                                <span>打开计划任务</span>
+                            <input is="emby-input" id="ActorSearch" class="av-search" type="text"
+                                   placeholder="搜索艺名…" />
+                        </div>
+
+                        <div id="ActorList" class="av-scroll">正在加载演员…</div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="MergeDisplayName">
+                                合集名（可留空）
+                            </label>
+                            <input is="emby-input" id="MergeDisplayName" type="text" />
+                            <div class="fieldDescription">
+                                留空则自动按作品数取最活跃的几个艺名拼成「A / B」。
+                            </div>
+                        </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="MergePosterAlias">
+                                封面用哪个艺名的头像（可留空）
+                            </label>
+                            <input is="emby-input" id="MergePosterAlias" type="text" />
+                            <div class="fieldDescription">
+                                留空则用作品数最多的那个艺名。
+                            </div>
+                        </div>
+
+                        <div class="av-actions">
+                            <button is="emby-button" type="button" id="MergeSelected" class="raised">
+                                <span>合并选中的艺名</span>
                             </button>
                         </div>
-                        <div class="av-hint">
-                            同步相关的按钮都在上面的「艺名合并」里；这里只留计划任务入口，
-                            用来查看定时任务的状态和历史。
+
+                        <div class="av-status" id="MergeStatus"></div>
+
+                        <div class="av-hint">已配置的合并组：</div>
+                        <div id="GroupList">正在加载…</div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="av-group">
+                    <legend class="av-group-title">其他</legend>
+                    <div class="av-group-body">
+                        <div class="checkboxContainer checkboxContainer-withDescription">
+                            <label class="emby-checkbox-label">
+                                <input id="SetPosterFromActor" type="checkbox" is="emby-checkbox" />
+                                <span>用演员头像作为合集封面</span>
+                            </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                合并组使用「封面艺名」那一张头像；未指定时用作品数最多的艺名。
+                            </div>
                         </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="MinActorCount">最少演员数保护</label>
+                            <input is="emby-input" id="MinActorCount" type="number" min="1" max="100" step="1" />
+                            <div class="fieldDescription">
+                                媒体库扫描期间演员信息可能为空。扫到的演员少于这个数量时直接中止，避免把合集清空。
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="av-group">
+                    <legend class="av-group-title">手动运行</legend>
+                    <div class="av-group-body">
+                        <p class="fieldDescription">
+                            <strong>预览</strong>只计算不写库，用来确认将要发生什么；
+                            <strong>立即同步</strong>才会真正创建、改名、合并合集并设置封面。
+                        </p>
+
+                        <div class="av-actions">
+                            <button is="emby-button" type="button" id="ReloadActors" class="raised small">
+                                <span>重新扫描演员</span>
+                            </button>
+                            <button is="emby-button" type="button" id="PreviewButton" class="raised small">
+                                <span>预览（不写库）</span>
+                            </button>
+                            <button is="emby-button" type="button" id="MergeRunNow" class="raised button-submit">
+                                <span>立即同步</span>
+                            </button>
+                        </div>
+
+                        <div class="av-status" id="RunStatus"></div>
                     </div>
                 </fieldset>
 
@@ -525,14 +522,15 @@
             }
 
             /**
-             * 在所有状态框里显示同一条消息。
+             * 在「共享」状态框里显示同一条消息。
              * 「艺名合并」和「手动运行」各有一个状态框，两处都写一遍，
              * 无论用户正看着哪一段都能看到结果。
              */
             function setStatus(message, bad) {
                 page.querySelectorAll('.av-status').forEach(function (box) {
-                    // 「测试连接」的结果只显示在 AI 设置里，不要被合并/同步的结果覆盖。
-                    if (box.id === 'AiTestStatus') {
+                    // AI 接口区（测试连接）和合集命名区（翻译结果）各有专属状态框，
+                    // 不能被合并 / 预览 / 同步的消息覆盖掉。
+                    if (box.id === 'AiTestStatus' || box.id === 'TranslateStatus') {
                         return;
                     }
 
@@ -546,8 +544,8 @@
             }
 
             /**
-             * 在「AI 设置」里单独显示测试连接的结果。成功/失败用不同边框色，
-             * 并把实际请求地址与耗时一并写出来，方便核对。
+             * 在指定状态框里单独显示结果（成功/失败用不同边框色），
+             * 并把多行内容一并写出来。AI 接口区与合集命名区各用自己的状态框。
              */
             function setAiTestStatus(box, ok, lines) {
                 box.className = ok ? 'av-status' : 'av-status av-status-bad';
@@ -1062,7 +1060,7 @@
              * 否则用户会以为按钮没反应。
              */
             function translateNames() {
-                var box = byId('AiTestStatus');
+                var box = byId('TranslateStatus');
                 Dashboard.showLoadingMsg();
                 setAiTestStatus(box, true, ['正在翻译演员名，通常需要 1-2 分钟，请不要关闭页面…']);
 
@@ -1178,9 +1176,6 @@
             document.querySelector('#ActorSearch').addEventListener('input', renderActors);
             document.querySelector('#MergeSelected').addEventListener('click', mergeSelected);
             document.querySelector('#PreviewButton').addEventListener('click', preview);
-            document.querySelector('#OpenTasks').addEventListener('click', function () {
-                Dashboard.navigate('scheduledtasks.html');
-            });
         })();
     </script>
 </div>
