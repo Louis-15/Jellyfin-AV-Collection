@@ -384,7 +384,7 @@
                         <p class="fieldDescription">
                             把「其实是同一个人、但用了不同艺名」的演员勾在一起，点「合并选中的艺名」。
                             合并后他们共用同一个合集，影片也会并到一起。
-                            合并只改配置，要让合集真正变化，需要到「手动运行」点「立即同步」。
+                            合并只改配置，要让合集真正变化，点旁边的「立即同步」。
                         </p>
 
                         <div class="checkboxContainer checkboxContainer-withDescription">
@@ -408,6 +408,11 @@
                         <div class="av-actions">
                             <button is="emby-button" type="button" id="MergeSelected" class="raised">
                                 <span>合并选中的艺名</span>
+                            </button>
+                            <!-- 合并只改配置，必须跑一次同步才真正合到合集里，所以就地也放一个。 -->
+                            <button is="emby-button" type="button" id="MergeGroupRunNow"
+                                    class="raised button-submit av-run-now" data-status="MergeStatus">
+                                <span>立即同步</span>
                             </button>
                         </div>
 
@@ -967,7 +972,7 @@
                     PosterAlias: ''
                 }).then(function () {
                     selectedActors = {};
-                    setStatusIn('MergeStatus', '合并组已保存：' + names.join(' + ') + '。到「手动运行」点「立即同步」让合集真正合并。');
+                    setStatusIn('MergeStatus', '合并组已保存：' + names.join(' + ') + '。点旁边的「立即同步」让合集真正合并。');
                     return refreshGroups().then(function () {
                         return loadActors();
                     });
