@@ -1,7 +1,7 @@
 # AV Collection · 项目交接文档
 
 > 这份文档写给**接手继续开发的人或 AI**。读完这一篇就能直接改代码，不需要翻聊天记录。
-> 最后更新：2026-11-03，当前版本 **1.0.0.5**。
+> 最后更新：2026-11-03，当前版本 **1.0.0.6**。
 
 ---
 
@@ -168,12 +168,18 @@ Jellyfin.Plugin.AVCollection/
    所以改前端时 mock 必须模拟"ajax 返回 Response、getJSON 返回对象"。
 10. **`ApiClient.ajax` 失败时 throw 的是 `Response`**，没有 `responseText`；
     错误处理要按 `error.status` / `error.json()` 读。
-11. **不要用 `is="emby-checkbox"` 构造动态复选行**（1.0.0.4 的"点了没反应"）：
+11. **`style.display = ''` 不会把元素显示出来**：`.av-status` 在样式表里是 `display:none`，
+    置空字符串只是"去掉内联样式"，于是又回落到样式表 → 仍然隐藏。必须显式写 `'block'`。
+    （这个 bug 让"正在同步/同步完成"的提示一直看不见，是测试里量 `getComputedStyle` 才发现的。）
+12. **改配置 ≠ 生效**：合并组保存后必须跑一次同步才会真正改合集。
+    所以「艺名合并」区域也放了一个「立即同步」按钮，`setStatus` 会同时写两处状态框。
+13. **不要用 `is="emby-checkbox"` 构造动态复选行**：
     - `emby-checkbox` 是自定义元素，靠 `attachedCallback` 往 label 末尾插
       `<span class="checkboxOutline">`。JS 创建、随后才挂进文档的行容易漏掉升级。
     - 对勾的显隐依赖 `.emby-checkbox:checked + span + .checkboxOutline`，
       要求 span 是 input 的**紧邻兄弟**、outline **紧跟其后**。label 里多出作品数
       这类元素就永远匹配不上 → `input.checked` 变成 true 了，但对勾不显示。
+      这就是 1.0.0.4 里"点艺名复选框没反应"的真正原因。
     - 结论：动态列表一律用自己画的 `.av-box`（`createCheckRow`），
       状态由 `row.is-checked` + `aria-checked` 驱动。静态 HTML 里的几个开关
       仍可以用 `emby-checkbox`（它们在解析时就升级，且结构是 input→span→outline）。
@@ -237,6 +243,7 @@ dotnet test .\tests\Jellyfin.Plugin.AVCollection.Tests\...\csproj -c Release
 | 1.0.0.3 | 文案微调（"取最活跃的艺名"、"· 已在合并组"） |
 | **1.0.0.4** | 修设置页"没有找到媒体库"：`ApiClient.ajax` 对 GET 不返回解析后的 JSON，改用 `getJSON`；GUID 大小写/连字符归一化 |
 | **1.0.0.5** | 修「艺名合并」勾选框点了没反应：动态行不再用 `is="emby-checkbox"`（对勾依赖紧邻兄弟选择器，多一个元素就匹配不上），改为自己画的 `.av-box` + `is-checked` 驱动 |
+| **1.0.0.6** | 「艺名合并」区域新增「立即同步」按钮（合并只改配置，合集要同步才变）；顺手修状态框永远不显示（`style.display = ''` 会退回 CSS 的 `display:none`，必须显式给 `block`） |
 
 ### 仓库推送注意
 

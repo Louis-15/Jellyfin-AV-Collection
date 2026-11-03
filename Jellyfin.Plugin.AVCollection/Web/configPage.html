@@ -316,7 +316,18 @@
                             <button is="emby-button" type="button" id="ReloadActors" class="raised small">
                                 <span>重新扫描演员</span>
                             </button>
+                            <!--
+                                和「手动运行」里的「立即同步」是同一个动作。
+                                放在这里是因为"改完合并组以为已经生效"是必然会发生的事：
+                                合并只改配置，合集要同步才会变。
+                            -->
+                            <button is="emby-button" type="button" id="MergeRunNow" class="raised button-submit">
+                                <span>立即同步</span>
+                            </button>
                         </div>
+
+                        <!-- 就地显示运行结果，省得用户滚到最下面才看到成功/失败。 -->
+                        <div class="av-status" id="MergeRunStatus"></div>
 
                         <div class="av-hint">已配置的合并组：</div>
                         <div id="GroupList">正在加载…</div>
@@ -428,11 +439,20 @@
                 return page.querySelector('#' + id);
             }
 
+            /**
+             * 在所有状态框里显示同一条消息。
+             * 「艺名合并」和「手动运行」各有一个状态框，两处都写一遍，
+             * 无论用户正看着哪一段都能看到结果。
+             */
             function setStatus(message, bad) {
-                var box = byId('RunStatus');
-                box.textContent = message;
-                box.className = bad ? 'av-status av-status-bad' : 'av-status';
-                box.style.display = '';
+                page.querySelectorAll('.av-status').forEach(function (box) {
+                    box.textContent = message;
+                    box.className = bad ? 'av-status av-status-bad' : 'av-status';
+
+                    // 必须显式给 block：CSS 里 .av-status 默认 display:none，
+                    // 置空字符串只会退回样式表，等于仍然隐藏。
+                    box.style.display = 'block';
+                });
             }
 
             // GET 必须走 ApiClient.getJSON：ApiClient.ajax 在 GET 上返回的是 Response /
@@ -826,7 +846,7 @@
                     selectedActors = {};
                     byId('MergeDisplayName').value = '';
                     byId('MergePosterAlias').value = '';
-                    setStatus('合并组已保存：' + names.join(' + ') + '。点「立即同步」让合集生效。');
+                    setStatus('合并组已保存：' + names.join(' + ') + '。点旁边的「立即同步」让合集真正合并。');
                     return refreshGroups().then(function () {
                         return loadActors();
                     });
@@ -889,7 +909,7 @@
                         Dashboard.showLoadingMsg();
                         apiSend('POST', 'AVCollection/Groups', { Aliases: item.aliases }).then(function () {
                             card.remove();
-                            setStatus('已采纳建议：' + (item.aliases || []).join(' + ') + '。点「立即同步」让合集生效。');
+                            setStatus('已采纳建议：' + (item.aliases || []).join(' + ') + '。点旁边的「立即同步」让合集真正合并。');
                             return refreshGroups().then(function () {
                                 return loadActors();
                             });
@@ -972,6 +992,7 @@
             });
 
             document.querySelector('#ReloadActors').addEventListener('click', loadActors);
+            document.querySelector('#MergeRunNow').addEventListener('click', runNow);
             document.querySelector('#ActorSearch').addEventListener('input', renderActors);
             document.querySelector('#MergeSelected').addEventListener('click', mergeSelected);
             document.querySelector('#SuggestButton').addEventListener('click', suggest);
