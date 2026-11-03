@@ -112,15 +112,85 @@ public sealed class ActorIndex
                         actors[name] = actor;
                     }
 
-                    // 同一个演员理论上只有一个 Person Id；保留第一次看到的非空值即可。
-                    actor.PersonId ??= person.Id == Guid.Empty ? null : person.Id;
+                    // 这里不要读 person.Id —— 见 Scan 末尾的说明。
                     actor.AddItem(item.Id, item.Name, libraryId);
                 }
             }
         }
 
+        ResolvePersonIds(actors);
+
         return actors.Values
             .OrderBy(a => a.Name, StringComparer.Ordinal)
             .ToList();
     }
+
+    /// <summary>
+    /// 按演员名解析真正的 Person 条目 Id。
+    ///
+    /// 为什么不能直接用 <c>PersonInfo.Id</c>：
+    /// <c>IPeopleRepository.GetPeopleByItems</c> 返回的 Id 并不是 Person 这条
+    /// BaseItem 的 Id（实测同一个演员返回一个稳定但查不到任何条目的 GUID）。
+    /// 用它去 <c>GetItemById</c> 永远是 null，于是每位演员都被判定"没有头像"，
+    /// 合集永远设不上封面 —— 1.0.0.6 之前的版本就是这个症状。
+    ///
+    /// 这里一次性把 Person 条目全取回来按名字索引：
+    /// 一次查询换 N 次解析，比逐个按名字搜便宜得多。
+    /// </summary>
+    /// <param name="actors">已扫到的演员（按名字索引）。</param>
+    private void ResolvePersonIds(Dictionary<string, ActorInfo> actors)
+    {
+        var map = new Dictionary<string, Guid>(StringComparer.Ordinal);
+
+        try
+        {
+            var people = _libraryManager.GetItemList(new InternalItemsQuery
+            {
+                Recursive = true,
+                IncludeItemTypes = [BaseItemKind.Person]
+            });
+
+            foreach (var person in people)
+            {
+                var name = (person.Name ?? string.Empty).Trim();
+                if (name.Length == 0)
+                {
+                    continue;
+                }
+
+                // 同名演员理论上指向同一个 Person 条目；真有重名时保留第一个，
+                // 与"合集按名字切分"的语义一致。
+                map.TryAdd(name, person.Id);
+            }
+        }
+        catch (Exception)
+        {
+            // Person 条目查不到只影响封面，不该让整次同步失败。
+            map.Clear();
+        }
+
+        var resolved = 0;
+        foreach (var actor in actors.Values)
+        {
+            if (map.TryGetValue(actor.Name, out var personId))
+            {
+                actor.PersonId = personId;
+                resolved++;
+            }
+            else
+            {
+                actor.PersonId = null;
+            }
+        }
+
+        _resolvedPersonCount = resolved;
+    }
+
+    private int _resolvedPersonCount;
+
+    /// <summary>
+    /// 最近一次扫描里能解析到 Person 条目的演员数量（供调用方打日志，
+    /// 数量为 0 通常意味着 Person 条目还没生成出来）。
+    /// </summary>
+    public int ResolvedPersonCount => _resolvedPersonCount;
 }

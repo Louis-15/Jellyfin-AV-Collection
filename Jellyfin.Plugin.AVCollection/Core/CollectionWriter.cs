@@ -308,18 +308,33 @@ public sealed class CollectionWriter
         Guid? posterPersonId,
         CancellationToken cancellationToken)
     {
-        var personId = posterPersonId ?? FindPersonIdByName(posterAlias);
-        if (personId is null)
+        if (posterPersonId is null)
         {
-            _log.Warn($"「{posterAlias}」没有 Person 记录，跳过封面");
+            // 解析不到 Person 条目通常是两种原因：演员条目还没生成，或者 Jellyfin 里
+            // 根本没有这位演员的 Person 记录。明确提示"去刮削头像"比笼统的"没有头像"有用。
+            _log.Warn($"「{posterAlias}」在 Jellyfin 里找不到演员条目，跳过封面（先给演员刮削头像再同步）");
             return;
         }
 
-        var person = _libraryManager.GetItemById(personId.Value);
-        var source = person?.ImageInfos?.FirstOrDefault(i => i.Type == ImageType.Primary);
-        if (source is null || string.IsNullOrEmpty(source.Path) || !File.Exists(source.Path))
+        var person = _libraryManager.GetItemById(posterPersonId.Value);
+        if (person is null)
         {
-            _log.Info($"「{posterAlias}」没有头像，跳过封面");
+            _log.Warn($"「{posterAlias}」的演员条目已失效（Id={posterPersonId:N}），跳过封面");
+            return;
+        }
+
+        var source = person.ImageInfos?.FirstOrDefault(i => i.Type == ImageType.Primary);
+        if (source is null || string.IsNullOrEmpty(source.Path))
+        {
+            _log.Info($"「{posterAlias}」的演员条目没有头像，跳过封面（在 Jellyfin 里给这位演员刮削头像后会自动补上）");
+            return;
+        }
+
+        // 远程图片的 Path 是 http(s) URL，File.Exists 一定为 false。
+        // 这种图 Jellyfin 还没落地到磁盘，这里不处理，只打日志说明原因。
+        if (!File.Exists(source.Path))
+        {
+            _log.Info($"「{posterAlias}」的头像还不是本地文件（{source.Path}），跳过封面");
             return;
         }
 
@@ -362,27 +377,6 @@ public sealed class CollectionWriter
             ".tbn" => "image/jpeg",
             _ => "image/jpeg"
         };
-    }
-
-    /// <summary>
-    /// 用演员名反查 Person Id。只在计划里没带 PersonId 时兜底
-    /// （例如合并组配置了库里当前没作品的艺名）。
-    /// </summary>
-    private Guid? FindPersonIdByName(string name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            return null;
-        }
-
-        var people = _libraryManager.GetItemList(new InternalItemsQuery
-        {
-            Recursive = true,
-            IncludeItemTypes = [BaseItemKind.Person]
-        });
-
-        return people.FirstOrDefault(p =>
-            string.Equals((p.Name ?? string.Empty).Trim(), name.Trim(), StringComparison.Ordinal))?.Id;
     }
 
     private async Task ClearWrongMetadataAsync(BoxSet boxSet, CancellationToken cancellationToken)
