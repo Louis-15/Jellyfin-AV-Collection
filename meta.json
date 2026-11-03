@@ -1,13 +1,13 @@
 {
-  "guid": "a9a417c4-254a-4c10-b869-f6a38bf418ee",
-  "name": "AV Collection",
-  "version": "1.0.0.0",
-  "targetAbi": "12.2.0.0",
-  "framework": "net10.0",
-  "owner": "Jellyfin-AV-Collection",
-  "overview": "按演员自动建立并维护 Jellyfin 合集，自动用演员头像做合集封面，并支持把同一演员的多个艺名合并到一个合集。",
-  "description": "Scans the selected libraries, groups movies by actor, creates one Jellyfin collection per actor, uses the actor portrait as the collection poster and merges several stage names that belong to the same performer into a single collection (named after the two most prolific stage names by default). Merge rules are configured in the plugin settings page and can be suggested by an OpenAI-compatible model.",
-  "category": "Metadata",
-  "imagePath": "logo.png",
-  "timestamp": "2026-11-03T00:00:00.0000000Z"
+    "guid":  "a9a417c4-254a-4c10-b869-f6a38bf418ee",
+    "name":  "AV Collection",
+    "version":  "1.0.0.0",
+    "targetAbi":  "12.2.0.0",
+    "framework":  "net10.0",
+    "owner":  "Jellyfin-AV-Collection",
+    "overview":  "按演员自动建立并维护 Jellyfin 合集，自动用演员头像做合集封面，并支持把同一演员的多个艺名合并到一个合集。",
+    "description":  "Scans the selected libraries, groups movies by actor, creates one Jellyfin collection per actor, uses the actor portrait as the collection poster and merges several stage names that belong to the same performer into a single collection (named after the two most prolific stage names by default). Merge rules are configured in the plugin settings page and can be suggested by an OpenAI-compatible model.",
+    "category":  "Metadata",
+    "imagePath":  "logo.png",
+    "timestamp":  "2026-11-03T00:00:00.0000000Z"
 }
