@@ -93,6 +93,15 @@ public sealed class CollectionSyncJob
         progress?.Report(0);
         var libraries = _index.ResolveLibraries(config.LibraryIds);
         summary.LibraryCount = libraries.Count;
+
+        if (libraries.Count == 0)
+        {
+            const string NoLibrary = "没有配置目标影视库。请在插件设置页勾选要处理的库（例如「日本大姐姐」），否则不会动任何合集。";
+            _log.Warn(NoLibrary);
+            summary.Skipped = NoLibrary;
+            return summary;
+        }
+
         _log.Info($"开始扫描 {libraries.Count} 个媒体库{(dryRun ? "（预览模式，不写库）" : string.Empty)}");
 
         var actors = _index.Scan(libraries, cancellationToken);

@@ -28,24 +28,19 @@ public sealed class ActorIndex
     }
 
     /// <summary>
-    /// 决定这次要扫哪些库：配置里指定了就用指定的，没指定就退回"所有电影库"。
-    /// 这样用户装完插件什么都不配也能工作。
+    /// 决定这次要扫哪些库。
+    ///
+    /// 刻意**不做**"没配就扫所有电影库"的回退：
+    /// 一个演员合集插件去给整个「电影」库的几百位演员各建一个合集是灾难性的，
+    /// 而且很难一键撤销。没配置就什么都不做，由设置页提示用户先选库。
     /// </summary>
     /// <param name="configured">配置里的媒体库 Id。</param>
-    /// <returns>实际要扫的库。</returns>
+    /// <returns>实际要扫的库；未配置时为空。</returns>
     public IReadOnlyList<Guid> ResolveLibraries(IEnumerable<Guid>? configured)
     {
-        var explicitIds = (configured ?? []).Where(id => id != Guid.Empty).Distinct().ToList();
-        if (explicitIds.Count > 0)
-        {
-            return explicitIds;
-        }
-
-        return _libraryManager.GetUserRootFolder()
-            .Children
-            .OfType<CollectionFolder>()
-            .Where(f => f.CollectionType == CollectionType.movies)
-            .Select(f => f.Id)
+        return (configured ?? [])
+            .Where(id => id != Guid.Empty)
+            .Distinct()
             .ToList();
     }
 
