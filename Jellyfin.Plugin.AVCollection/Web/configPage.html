@@ -359,7 +359,7 @@
                             <button is="emby-button" type="button" id="TranslateButton" class="raised">
                                 <span>翻译演员名</span>
                             </button>
-                            <!-- 改完译名就地同步，不用再滚到最下面的「手动运行」区。
+                            <!-- 改完译名就地同步，不用再滚到最下面的「预览与同步」区。
                                  两个「立即同步」故意各放一份，共用同一个处理函数。 -->
                             <button is="emby-button" type="button" id="NamingRunNow"
                                     class="raised button-submit av-run-now" data-status="NamingStatus">
@@ -458,7 +458,7 @@
                 </fieldset>
 
                 <fieldset class="av-group">
-                    <legend class="av-group-title">手动运行</legend>
+                    <legend class="av-group-title">预览与同步</legend>
                     <div class="av-group-body">
                         <p class="fieldDescription">
                             <strong>预览</strong>只计算不写库，用来确认将要发生什么；
@@ -1132,7 +1132,7 @@
             }
 
             /**
-             * 立即同步。页面上有两个入口（合集命名区、手动运行区），
+             * 立即同步。页面上有三个入口（合集命名 / 艺名合并 / 预览与同步），
              * 结果写回触发它的那个分区，用户不用滚到别处去找输出。
              *
              * @param {string} boxId 目标状态框 id，由按钮的 data-status 提供。
@@ -1179,7 +1179,7 @@
 
             document.querySelector('#ReloadActors').addEventListener('click', rescanActors);
 
-            // 两个「立即同步」按钮（合集命名区 / 手动运行区）共用同一个处理函数，
+            // 三个「立即同步」按钮（合集命名 / 艺名合并 / 预览与同步）共用同一个处理函数，
             // 各自通过 data-status 指定结果写到哪个状态框。
             document.querySelectorAll('.av-run-now').forEach(function (button) {
                 button.addEventListener('click', function () {
