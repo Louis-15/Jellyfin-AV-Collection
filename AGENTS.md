@@ -172,7 +172,11 @@ Jellyfin.Plugin.AVCollection/
     置空字符串只是"去掉内联样式"，于是又回落到样式表 → 仍然隐藏。必须显式写 `'block'`。
     （这个 bug 让"正在同步/同步完成"的提示一直看不见，是测试里量 `getComputedStyle` 才发现的。）
 12. **改配置 ≠ 生效**：合并组保存后必须跑一次同步才会真正改合集。
-    所以「艺名合并」区域也放了一个「立即同步」按钮，`setStatus` 会同时写两处状态框。
+    页面上有两个「立即同步」（合集命名区、手动运行区），各自通过 `data-status`
+    指定结果写到哪个状态框。
+    **状态框必须按分区隔离**：早先 `setStatus` 往所有 `.av-status` 广播，
+    点「预览」时「艺名合并」区也会冒出一份一模一样的结果，看着像重复输出。
+    现在统一走 `setStatusIn(boxId, message, bad)`，一个区只显示自己那块按钮的结果。
 13. **`IPeopleRepository.GetPeopleByItems` 返回的 `PersonInfo.Id` 不是 Person 条目 Id**（这是最坑的一个）：    它是另一个 GUID，`_libraryManager.GetItemById(personInfo.Id)` 永远是 null。
     症状：**每位演员都被判定"没有头像"，合集封面永远设不上**，日志里一片
     「「XXX」没有头像，跳过封面」。
@@ -200,6 +204,15 @@ Jellyfin.Plugin.AVCollection/
     - 结论：动态列表一律用自己画的 `.av-box`（`createCheckRow`），
       状态由 `row.is-checked` + `aria-checked` 驱动。静态 HTML 里的几个开关
       仍可以用 `emby-checkbox`（它们在解析时就升级，且结构是 input→span→outline）。
+    16. **CI 回写 `manifest.json` 不能在 tag 的 detached HEAD 上 commit 后 rebase**：
+        workflow 里先 `git commit` 再 `git rebase origin/main`，只要期间 main 前进过，
+        `manifest.json` 必然 `CONFLICT (content)` —— 因为两边改的是同一批行。
+        v1.0.2.2 就死在这里，`Publish the release` 排在后面，结果**整个 Release 都没发出来**。
+        正确做法：`git fetch origin main` → `git checkout -B manifest-update origin/main` →
+        在这个干净 base 上重新跑 `update-manifest.ps1` → commit → `git push origin HEAD:main`。
+        manifest 是脚本生成物，**重新生成一定比合并更准**。
+        另外 `release.ps1` 自己也要先 `fetch + rebase` 再打 tag，
+        否则本地 main 落后 CI 回写的那个提交，push 直接 non-fast-forward。
 
 ---
 
@@ -312,6 +325,8 @@ dotnet test .\tests\Jellyfin.Plugin.AVCollection.Tests\...\csproj -c Release
 | **1.0.2.0** | **删掉「AI 智能合并」**（判定质量差、数据源拿不到）；AI 改为把演员名翻译成中文名，用中文名命名合集。新增 `AiClient` / `TranslationStore` / `AiNameTranslator`，译名缓存到 `<data>/av-collection/translations.json`，设置页可逐条手改（失焦即保存） |
 | **1.0.2.1** | 设置页按功能重新分区：基本设置 / 目标影视库 / **AI 接口** / **合集命名** / **艺名合并** / **其他** / **手动运行** / 关于；去掉「打开计划任务」；「重新扫描演员 / 预览 / 立即同步」三个按钮集中到「手动运行」 |
 | **1.0.2.2** | 「重新扫描演员」加结果提示（按钮在「手动运行」、名单在「艺名合并」，中间隔一个分区，不给反馈会像按钮坏了） |
+| **1.0.2.3** | 合集命名区去掉「刷新译名表」（它只重拉数据、不翻译，语义重叠且用户不理解），改为就地「立即同步」（底部「立即同步」保留）；修复 CI 在回写 manifest 时 rebase 冲突导致 Release 发不出去 |
+| **1.0.2.4** | 状态框按分区隔离：每个区只显示自己那块按钮的结果（原先向所有状态框广播，点「预览」时「艺名合并」区会重复输出一份） |
 
 ### 仓库推送注意
 

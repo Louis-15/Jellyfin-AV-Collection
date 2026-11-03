@@ -368,12 +368,12 @@
                             <!-- 改完译名就地同步，不用再滚到最下面的「手动运行」区。
                                  两个「立即同步」故意各放一份，共用同一个处理函数。 -->
                             <button is="emby-button" type="button" id="NamingRunNow"
-                                    class="raised button-submit av-run-now">
+                                    class="raised button-submit av-run-now" data-status="NamingStatus">
                                 <span>立即同步</span>
                             </button>
                         </div>
 
-                        <div class="av-status" id="TranslateStatus"></div>
+                        <div class="av-status" id="NamingStatus"></div>
 
                         <div class="av-hint">
                             译名会缓存下来，逐条列在下面，可以直接改，失焦即保存。
@@ -483,7 +483,7 @@
                                 <span>预览（不写库）</span>
                             </button>
                             <button is="emby-button" type="button" id="MergeRunNow"
-                                    class="raised button-submit av-run-now">
+                                    class="raised button-submit av-run-now" data-status="RunStatus">
                                 <span>立即同步</span>
                             </button>
                         </div>
@@ -526,34 +526,23 @@
             }
 
             /**
-             * 在「共享」状态框里显示同一条消息。
-             * 「合集命名」「艺名合并」「手动运行」各有一个状态框，几处都写一遍，
-             * 无论用户正看着哪一段都能看到结果。
+             * 把结果显示到指定分区自己的状态框。
+             *
+             * 早先是往所有状态框广播同一条消息，结果点「预览」时
+             * 「艺名合并」区也会冒出一份一模一样的内容，看着像重复输出。
+             * 现在一个分区只显示自己那块按钮的结果。
              */
-            function setStatus(message, bad) {
-                page.querySelectorAll('.av-status').forEach(function (box) {
-                    // AI 接口区（「测试连接」）有专属状态框，
-                    // 不能被合并 / 预览 / 同步的消息覆盖掉。
-                    if (box.id === 'AiTestStatus') {
-                        return;
-                    }
+            function setStatusIn(boxId, message, bad) {
+                var box = byId(boxId);
+                if (!box) {
+                    return;
+                }
 
-                    box.textContent = message;
-                    box.className = bad ? 'av-status av-status-bad' : 'av-status';
+                box.textContent = message;
+                box.className = bad ? 'av-status av-status-bad' : 'av-status';
 
-                    // 必须显式给 block：CSS 里 .av-status 默认 display:none，
-                    // 置空字符串只会退回样式表，等于仍然隐藏。
-                    box.style.display = 'block';
-                });
-            }
-
-            /**
-             * 在指定状态框里单独显示结果（成功/失败用不同边框色），
-             * 并把多行内容一并写出来。AI 接口区与合集命名区各用自己的状态框。
-             */
-            function setAiTestStatus(box, ok, lines) {
-                box.className = ok ? 'av-status' : 'av-status av-status-bad';
-                box.textContent = lines.join('\n');
+                // 必须显式给 block：CSS 里 .av-status 默认 display:none，
+                // 置空字符串只会退回样式表，等于仍然隐藏。
                 box.style.display = 'block';
             }
 
@@ -865,12 +854,12 @@
                     // 「重新扫描演员」按钮在「手动运行」区，演员列表却在「艺名合并」区，
                     // 中间隔着一整个分区。不写一行结果，数据没变化时用户会以为按钮坏了。
                     if (notify) {
-                        setStatus('已重新扫描演员：共 ' + actors.length + ' 位，名单在上方「艺名合并」里。');
+                        setStatusIn('RunStatus', '已重新扫描演员：共 ' + actors.length + ' 位，名单在上方「艺名合并」里。');
                     }
                 }, function () {
                     byId('ActorList').textContent = '读取演员列表失败（需要管理员权限）。';
                     if (notify) {
-                        setStatus('读取演员列表失败（需要管理员权限）。', true);
+                        setStatusIn('RunStatus', '读取演员列表失败（需要管理员权限）。', true);
                     }
                 }).finally(function () {
                     Dashboard.hideLoadingMsg();
@@ -962,7 +951,7 @@
             function mergeSelected() {
                 var names = Object.keys(selectedActors);
                 if (names.length < 2) {
-                    setStatus('请至少勾选两个艺名再合并。', true);
+                    setStatusIn('MergeStatus', '请至少勾选两个艺名再合并。', true);
                     return;
                 }
 
@@ -975,12 +964,12 @@
                     selectedActors = {};
                     byId('MergeDisplayName').value = '';
                     byId('MergePosterAlias').value = '';
-                    setStatus('合并组已保存：' + names.join(' + ') + '。点旁边的「立即同步」让合集真正合并。');
+                    setStatusIn('MergeStatus', '合并组已保存：' + names.join(' + ') + '。到「手动运行」点「立即同步」让合集真正合并。');
                     return refreshGroups().then(function () {
                         return loadActors();
                     });
                 }, function (error) {
-                    setStatus('保存合并组失败：' + describeError(error, '请确认当前账号有管理员权限'), true);
+                    setStatusIn('MergeStatus', '保存合并组失败：' + describeError(error, '请确认当前账号有管理员权限'), true);
                 }).finally(function () {
                     Dashboard.hideLoadingMsg();
                 });
@@ -1043,7 +1032,7 @@
                             row.hasTranslation = !!value;
                             label.classList.remove('av-trans-pending');
                         }, function () {
-                            setStatus('保存译名失败：' + row.original, true);
+                            setStatusIn('NamingStatus', '保存译名失败：' + row.original, true);
                         });
                     });
 
@@ -1072,18 +1061,15 @@
              * 否则用户会以为按钮没反应。
              */
             function translateNames() {
-                var box = byId('TranslateStatus');
                 Dashboard.showLoadingMsg();
-                setAiTestStatus(box, true, ['正在翻译演员名，通常需要 1-2 分钟，请不要关闭页面…']);
+                setStatusIn('NamingStatus', '正在翻译演员名，通常需要 1-2 分钟，请不要关闭页面…');
 
                 apiSend('POST', 'AVCollection/Translations', { Force: false }).then(function (result) {
-                    var lines = [result.summary || '完成'];
-                    setAiTestStatus(box, result.ok === true, lines);
+                    setStatusIn('NamingStatus', result.summary || '完成', result.ok !== true);
                     return loadTranslations();
                 }, function (error) {
-                    setAiTestStatus(box, false, [
-                        '翻译失败：' + describeError(error, '请先点「测试连接」确认配置正确')
-                    ]);
+                    setStatusIn('NamingStatus',
+                        '翻译失败：' + describeError(error, '请先点「测试连接」确认配置正确'), true);
                 }).finally(function () {
                     Dashboard.hideLoadingMsg();
                 });
@@ -1094,9 +1080,8 @@
              * 用来在不跑完整合并的前提下确认地址 / Key / 模型名三项都对。
              */
             function testAi() {
-                var box = byId('AiTestStatus');
                 Dashboard.showLoadingMsg();
-                setAiTestStatus(box, true, ['正在测试连接…']);
+                setStatusIn('AiTestStatus', '正在测试连接…');
 
                 apiSend('POST', 'AVCollection/Ai/Test').then(function (result) {
                     var lines = [result.message || (result.ok ? '连接正常' : '连接失败')];
@@ -1113,11 +1098,10 @@
                         lines.push('模型回复：' + result.reply);
                     }
 
-                    setAiTestStatus(box, result.ok === true, lines);
+                    setStatusIn('AiTestStatus', lines.join('\n'), result.ok !== true);
                 }, function (error) {
-                    setAiTestStatus(box, false, [
-                        '测试请求失败：' + describeError(error, '请确认当前账号是管理员')
-                    ]);
+                    setStatusIn('AiTestStatus',
+                        '测试请求失败：' + describeError(error, '请确认当前账号是管理员'), true);
                 }).finally(function () {
                     Dashboard.hideLoadingMsg();
                 });
@@ -1127,26 +1111,32 @@
 
             function preview() {
                 Dashboard.showLoadingMsg();
-                setStatus('正在计算…');
+                setStatusIn('RunStatus', '正在计算…');
                 apiSend('POST', 'AVCollection/Preview').then(function (result) {
                     var text = (result && result.summary) || '完成';
                     var details = (result && result.details) || [];
-                    setStatus(text + (details.length ? '\n\n' + details.join('\n') : ''));
+                    setStatusIn('RunStatus', text + (details.length ? '\n\n' + details.join('\n') : ''));
                 }, function (error) {
-                    setStatus('预览失败：' + describeError(error, '请确认当前账号是管理员'), true);
+                    setStatusIn('RunStatus', '预览失败：' + describeError(error, '请确认当前账号是管理员'), true);
                 }).finally(function () {
                     Dashboard.hideLoadingMsg();
                 });
             }
 
-            function runNow() {
+            /**
+             * 立即同步。页面上有两个入口（合集命名区、手动运行区），
+             * 结果写回触发它的那个分区，用户不用滚到别处去找输出。
+             *
+             * @param {string} boxId 目标状态框 id，由按钮的 data-status 提供。
+             */
+            function runNow(boxId) {
                 Dashboard.showLoadingMsg();
-                setStatus('正在同步，合集较多时可能要一两分钟…');
+                setStatusIn(boxId, '正在同步，合集较多时可能要一两分钟…');
                 apiSend('POST', 'AVCollection/Run').then(function (result) {
-                    setStatus((result && result.summary) || '完成');
+                    setStatusIn(boxId, (result && result.summary) || '完成');
                     return loadActors();
                 }, function (error) {
-                    setStatus('同步失败：' + describeError(error, '请确认当前账号是管理员'), true);
+                    setStatusIn(boxId, '同步失败：' + describeError(error, '请确认当前账号是管理员'), true);
                 }).finally(function () {
                     Dashboard.hideLoadingMsg();
                 });
@@ -1183,10 +1173,12 @@
                 loadActors(true);
             });
 
-            // 两个「立即同步」按钮（合集命名区 / 手动运行区）共用同一个处理函数。
-            // 用 class 统一绑定，以后再加一处按钮只改 HTML 就行。
+            // 两个「立即同步」按钮（合集命名区 / 手动运行区）共用同一个处理函数，
+            // 各自通过 data-status 指定结果写到哪个状态框。
             document.querySelectorAll('.av-run-now').forEach(function (button) {
-                button.addEventListener('click', runNow);
+                button.addEventListener('click', function () {
+                    runNow(button.dataset.status);
+                });
             });
 
             document.querySelector('#AiProvider').addEventListener('change', syncAiProviderRows);
