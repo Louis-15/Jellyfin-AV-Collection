@@ -1,7 +1,7 @@
 # AV Collection · 项目交接文档
 
 > 这份文档写给**接手继续开发的人或 AI**。读完这一篇就能直接改代码，不需要翻聊天记录。
-> 最后更新：2026-11-03，当前版本 **1.0.0.0**。
+> 最后更新：2026-11-03，当前版本 **1.0.0.3**。
 
 ---
 
@@ -210,6 +210,28 @@ dotnet test .\tests\Jellyfin.Plugin.AVCollection.Tests\...\csproj -c Release
         → CI: test → build.ps1 打包 → MD5 写进 manifest.json → 提交 manifest → 发 Release
         → 在服务器上装新版本 → 重启 → 验证
 ```
+
+### 版本时间线
+
+| 版本 | 内容 |
+|---|---|
+| 1.0.0.0 | 首发：建合集 / 封面 / 艺名合并 / AI 建议 |
+| 1.0.0.1 | 修 DI：`PluginLog` 注入非泛型 `ILogger` 导致定时任务构造失败 |
+| 1.0.0.2 | 安全修复：未配置媒体库时不再回退"所有电影库"（实测会建 431 个合集） |
+| **1.0.0.3** | 文案微调（"取最活跃的艺名"、"· 已在合并组"） |
+
+### 仓库推送注意
+
+`gh` 的 OAuth token 只有 `repo` scope，**没有 `workflow` scope**，
+直接 `git push` 包含 `.github/workflows/` 的提交会被拒：
+
+```
+refusing to allow an OAuth App to create or update workflow ... without `workflow` scope
+```
+
+解决办法：这个仓库已配置用 SSH key 推送（SSH 不受 OAuth scope 限制），
+`git config core.sshCommand` 指向 `C:/Users/aaa/.ssh/id_ed25519_github_louis15`。
+新建克隆时记得重新设置，否则会退回 https 并再次被拒。
 
 **装到服务器**（SSH 免密可用，不需要 Jellyfin API Key）：
 

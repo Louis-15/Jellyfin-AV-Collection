@@ -238,7 +238,7 @@
                             </label>
                             <input is="emby-input" id="MergeDisplayName" type="text" />
                             <div class="fieldDescription">
-                                留空则自动按作品数取最快的几个艺名拼成「A / B」。
+                                留空则自动按作品数取最活跃的几个艺名拼成「A / B」。
                             </div>
                         </div>
 
@@ -559,9 +559,10 @@
                     count.textContent = actor.ItemCount + ' 部';
 
                     if (actor.GroupId) {
+                        // 用「·」隔开，避免和作品数连成一句读起来像"小野夕子已在合并组5部"。
                         var joined = document.createElement('span');
                         joined.className = 'av-count';
-                        joined.textContent = '已在合并组';
+                        joined.textContent = '· 已在合并组';
                         span.appendChild(joined);
                     }
 
