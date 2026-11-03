@@ -9,12 +9,12 @@
     "imageUrl": "https://raw.githubusercontent.com/Louis-15/Jellyfin-AV-Collection/main/logo.png",
     "versions": [
       {
-        "version": "1.0.1.1",
-        "changelog": "Release 1.0.1.1\n\n测试连接的 max_tokens 从 16 提到 64：16 个 token 会被推理模型的 reasoning 全部吃掉，实测 content 返回空串。",
+        "version": "1.0.1.2",
+        "changelog": "Release 1.0.1.2\n\n修升级后仍超时：Jellyfin 已存在的 XML 配置会覆盖代码里的新默认值，旧配置里的 60 秒超时升级后依然是 60。新增 ConfigVersion 一次性迁移，把 <120 秒的旧值提到 300 秒（用户已手动调大的不覆盖）。",
         "targetAbi": "12.2.0.0",
-        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.1.1/av-collection_1.0.1.1.zip",
-        "checksum": "c23681dd1fd707011c1a971ff0e77528",
-        "timestamp": "2026-11-03T16:20:49Z"
+        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.1.2/av-collection_1.0.1.2.zip",
+        "checksum": "e421d33fe567c0d7ce7c32e4c935dbdd",
+        "timestamp": "2026-11-03T16:26:45Z"
       }
     ]
   }
