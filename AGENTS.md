@@ -1,7 +1,7 @@
 # AV Collection · 项目交接文档
 
 > 这份文档写给**接手继续开发的人或 AI**。读完这一篇就能直接改代码，不需要翻聊天记录。
-> 最后更新：2026-11-03，当前版本 **1.0.0.9**。
+> 最后更新：2026-11-04，当前版本 **1.0.1.2**。
 
 ---
 
@@ -173,8 +173,7 @@ Jellyfin.Plugin.AVCollection/
     （这个 bug 让"正在同步/同步完成"的提示一直看不见，是测试里量 `getComputedStyle` 才发现的。）
 12. **改配置 ≠ 生效**：合并组保存后必须跑一次同步才会真正改合集。
     所以「艺名合并」区域也放了一个「立即同步」按钮，`setStatus` 会同时写两处状态框。
-13. **`IPeopleRepository.GetPeopleByItems` 返回的 `PersonInfo.Id` 不是 Person 条目 Id**（这是最坑的一个）：
-    它是另一个 GUID，`_libraryManager.GetItemById(personInfo.Id)` 永远是 null。
+13. **`IPeopleRepository.GetPeopleByItems` 返回的 `PersonInfo.Id` 不是 Person 条目 Id**（这是最坑的一个）：    它是另一个 GUID，`_libraryManager.GetItemById(personInfo.Id)` 永远是 null。
     症状：**每位演员都被判定"没有头像"，合集封面永远设不上**，日志里一片
     「「XXX」没有头像，跳过封面」。
     正确做法：扫描时用 `_libraryManager.GetItemList(new InternalItemsQuery {
@@ -185,7 +184,13 @@ Jellyfin.Plugin.AVCollection/
 
     排查手法：拿插件返回的 `PersonId` 去 `/Items/{id}/Images/Primary`，
     如果 404 但 `/Persons/{name}` 能查到同一个演员且有图像，就说明 id 用错了。
-14. **不要用 `is="emby-checkbox"` 构造动态复选行**：
+14. **改代码里的默认值救不了已存在的配置文件**：
+    Jellyfin 把插件配置存成 XML，**文件里的旧值会覆盖代码里的新默认值**。
+    把 `AiOptions.TimeoutSeconds` 默认从 60 改成 300 后，服务器上仍然读到 60，
+    「AI 智能合并」继续超时 —— 必须在 `Plugin` 构造函数里做一次性迁移
+    （靠 `PluginConfiguration.ConfigVersion` 判断，见 `Plugin.MigrateConfiguration`）。
+    任何"改默认值"的发版都要想一遍这件事。
+15. **不要用 `is="emby-checkbox"` 构造动态复选行**：
     - `emby-checkbox` 是自定义元素，靠 `attachedCallback` 往 label 末尾插
       `<span class="checkboxOutline">`。JS 创建、随后才挂进文档的行容易漏掉升级。
     - 对勾的显隐依赖 `.emby-checkbox:checked + span + .checkboxOutline`，
@@ -232,6 +237,26 @@ Python 脚本仍在服务器上按 timer 运行，**插件还没有接管**。
 
 **地址和请求头都由代码决定，不做成用户可改的开关**（见 `AiOptions.ResolveBaseUrl()`）。
 理由：用户选了 Open Code 却把地址改坏，报错只会是"连接失败"，极难排查。
+
+### 超时（重要）
+
+实测数据（Open Code 网关 + `deepseek-v4.1-flash`）：
+
+| 请求 | 耗时 |
+|---|---|
+| `Ai/Test`（"只回复两个字：可以"，`max_tokens=64`） | **1.3-1.9 秒** |
+| `Suggest`（21 位演员，不限制 `max_tokens`） | **107-149 秒** |
+
+所以默认超时是 **300 秒**，60 秒必然超时。推理模型会先把预算花在 reasoning 上：
+`max_tokens=16` 时 `content` 直接返回空串，64 才有正文。
+
+超时必须写日志（早期版本静默返回，服务器上完全查不到）。
+
+### 测试连接
+
+`POST /AVCollection/Ai/Test` 用极短请求验证三件事：地址通、Key 有效、模型名存在。
+返回 `{ok, message, endpoint, model, elapsedMs, reply}`，设置页单独显示在 AI 分组里
+（`setStatus` 会跳过 `#AiTestStatus`，避免被合并/同步的结果覆盖）。
 
 `AiAliasAdvisor` 只产出**建议**，永远不自动写配置 —— 演员同名判定出错会把不相干的作品
 并进一个合集，还带着别人的头像，必须由用户在设置页点「采纳」。
@@ -281,6 +306,9 @@ dotnet test .\tests\Jellyfin.Plugin.AVCollection.Tests\...\csproj -c Release
 | **1.0.0.7** | **修合集封面永远设不上**：`IPeopleRepository.GetPeopleByItems` 返回的 `PersonInfo.Id` 不是 Person 条目 Id，`GetItemById` 永远 null → 全体演员被判"没头像"。改为扫描时按名字解析真实 Person 条目 |
 | **1.0.0.8** | 封面取图补上"远程头像"分支：`ImageInfo.Path` 是 http(s) 时走 `HttpClient` 下载（等价于旧脚本一律走 REST 取图的做法），本地文件仍直接读盘 |
 | **1.0.0.9** | AI 设置独立成组并内置供应商（Open Code / 自定义）；Open Code 的地址与 `x-opencode-session` 头由代码固定，去掉"附带请求头"开关；「艺名合并」按钮行重排为 重新扫描 → 合并 → AI 智能合并 → 预览 → 立即同步 |
+| **1.0.1.0** | AI 设置新增「测试连接」；默认超时 60→300 秒；超时改为写日志；session id 改固定值；HTTP 错误码翻译成中文 |
+| **1.0.1.1** | 测试连接的 `max_tokens` 16→64（16 会被 reasoning 吃光，`content` 返回空串） |
+| **1.0.1.2** | 修「升级后仍然超时」：新增 `ConfigVersion` 一次性迁移，把配置文件里的旧 60 秒提到 300 秒 |
 
 ### 仓库推送注意
 
