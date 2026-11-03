@@ -18,6 +18,15 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool Enabled { get; set; } = true;
 
     /// <summary>
+    /// 配置结构版本，用于一次性迁移。
+    ///
+    /// Jellyfin 把插件配置存成 XML 文件，**已存在的文件会覆盖代码里的新默认值**：
+    /// 改了 <see cref="AiOptions.TimeoutSeconds"/> 的默认值，老用户升级后仍然读到旧值。
+    /// 所以需要显式的版本号来驱动迁移。
+    /// </summary>
+    public int ConfigVersion { get; set; }
+
+    /// <summary>
     /// 要处理的媒体库 Id。空数组表示"所有 movies 类型的库"，
     /// 这样用户不配置也不会什么都不做。
     /// </summary>

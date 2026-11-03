@@ -27,6 +27,44 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         : base(applicationPaths, xmlSerializer)
     {
         Instance = this;
+        MigrateConfiguration();
+    }
+
+    /// <summary>
+    /// 把上一版写进配置文件的旧值迁移到当前语义。
+    ///
+    /// 触发场景：1.0.0.9 及更早版本的配置文件里 <c>Ai.TimeoutSeconds</c> 是 60，
+    /// 而实测推理模型判断 20 位演员要 149 秒 —— 升级后不改这个值，「AI 智能合并」永远超时。
+    /// 迁移只跑一次（靠 <see cref="PluginConfiguration.ConfigVersion"/> 判断），
+    /// 之后用户手动调小也不会被再覆盖。
+    /// </summary>
+    private void MigrateConfiguration()
+    {
+        const int CurrentVersion = 1;
+
+        if (Configuration.ConfigVersion >= CurrentVersion)
+        {
+            return;
+        }
+
+        try
+        {
+            var timeout = Configuration.Ai?.TimeoutSeconds ?? 0;
+
+            // 只提升明显不够用的旧值；用户如果已经调到 120 以上就尊重他的选择。
+            if (timeout < 120)
+            {
+                Configuration.Ai ??= new AiOptions();
+                Configuration.Ai.TimeoutSeconds = 300;
+            }
+
+            Configuration.ConfigVersion = CurrentVersion;
+            UpdateConfiguration(Configuration);
+        }
+        catch (Exception)
+        {
+            // 迁移失败不该阻止插件加载：最坏情况是用户再去设置页手改一次。
+        }
     }
 
     /// <summary>获取当前插件实例（计划任务启动时可能还是 null）。</summary>
