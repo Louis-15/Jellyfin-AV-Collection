@@ -55,17 +55,74 @@
             border-radius: 0.3em;
         }
 
-        /* 演员 / 合集的每一行都用官方 .checkboxContainer + .emby-checkbox-label 结构。
-           切勿给 label 写内联 padding：会覆盖 .emby-checkbox-label 自带的
-           padding-left: 2.4em，让绝对定位的复选框方框压住名字前两个字。 */
+        /* 演员 / 合集的复选行。
+           刻意不用 Jellyfin 的 `is="emby-checkbox"`：
+           emby-checkbox 是自定义元素，靠 attachedCallback 往 label 末尾插
+           `<span class="checkboxOutline">`，而对勾的显隐又依赖
+           `.emby-checkbox:checked + span + .checkboxOutline`——要求 span 是 input 的
+           紧邻兄弟、outline 紧跟其后。label 里一旦多出作品数之类的元素就永远匹配不上，
+           表现就是"点了没反应"。而且升级时机依赖元素何时挂进文档，JS 动态生成的行
+           很容易漏掉。这里干脆自己画方框，样式和状态都完全可控。 */
         #AVCollectionConfigPage .av-row {
+            display: flex;
+            align-items: center;
+            gap: 0.65em;
             margin: 0;
+            padding: 0.42em 0.3em;
+            border-radius: 0.25em;
+            cursor: pointer;
+            user-select: none;
         }
 
-        #AVCollectionConfigPage .av-row .emby-checkbox-label {
-            display: flex;
-            height: auto;
-            min-height: 2.2em;
+        #AVCollectionConfigPage .av-row:hover {
+            background: rgba(127, 127, 127, 0.12);
+        }
+
+        #AVCollectionConfigPage .av-row:focus-visible {
+            outline: 2px solid var(--theme-accent-color, #00a4dc);
+            outline-offset: 1px;
+        }
+
+        #AVCollectionConfigPage .av-box {
+            flex: 0 0 auto;
+            position: relative;
+            width: 1.25em;
+            height: 1.25em;
+            box-sizing: border-box;
+            border: 2px solid currentColor;
+            border-radius: 0.2em;
+            opacity: 0.55;
+            transition: background-color 0.12s ease, opacity 0.12s ease;
+        }
+
+        #AVCollectionConfigPage .av-row:hover .av-box {
+            opacity: 0.85;
+        }
+
+        #AVCollectionConfigPage .av-row.is-checked .av-box {
+            background-color: var(--theme-accent-color, #00a4dc);
+            border-color: var(--theme-accent-color, #00a4dc);
+            opacity: 1;
+        }
+
+        /* 对勾用纯 CSS 画：一个只有右边和下边的矩形旋转 45°，比塞图标字体轻。 */
+        #AVCollectionConfigPage .av-row.is-checked .av-box::after {
+            content: '';
+            position: absolute;
+            left: 0.34em;
+            top: 0.08em;
+            width: 0.3em;
+            height: 0.62em;
+            border: solid #fff;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+            box-sizing: border-box;
+        }
+
+        #AVCollectionConfigPage .av-text {
+            flex: 1 1 auto;
+            min-width: 0;
+            word-break: break-word;
         }
 
         #AVCollectionConfigPage .av-count {
@@ -435,6 +492,82 @@
 
             // ---------- 媒体库 ----------
 
+            // ---------- 复选行 ----------
+
+            /**
+             * 构造一行「方框 + 文本」的可勾选行。
+             *
+             * 刻意不用 Jellyfin 的 `is="emby-checkbox"`：
+             * - 它是自定义元素，靠 attachedCallback 往 label 末尾插 .checkboxOutline，
+             *   而 JS 动态生成、随后才挂进文档的行容易漏掉升级；
+             * - 对勾的显隐依赖 `.emby-checkbox:checked + span + .checkboxOutline`，
+             *   要求 span 是 input 的紧邻兄弟、outline 紧跟其后。label 里多出作品数
+             *   就永远匹配不上，表现就是"点了没反应"（1.0.0.4 的真实现象）。
+             *
+             * 现在方框（.av-box）和对勾（::after）都由我们自己的 CSS 画，
+             * 状态由 .is-checked + aria-checked 驱动，和 Jellyfin 内部实现完全解耦。
+             *
+             * @param {string} text 主文本
+             * @param {boolean} checked 初始是否勾选
+             * @param {string} meta 附加文案（作品数等），显示在主文本后面
+             * @param {function(boolean)} onChange 勾选变化回调
+             */
+            function createCheckRow(text, checked, meta, onChange) {
+                var row = document.createElement('div');
+                row.className = 'checkboxContainer av-row';
+                row.setAttribute('role', 'checkbox');
+                row.setAttribute('tabindex', '0');
+
+                var box = document.createElement('span');
+                box.className = 'av-box';
+                box.setAttribute('aria-hidden', 'true');
+
+                var span = document.createElement('span');
+                span.className = 'av-text';
+                span.appendChild(document.createTextNode(text));
+
+                if (meta) {
+                    var metaSpan = document.createElement('span');
+                    metaSpan.className = 'av-count';
+                    metaSpan.textContent = meta;
+                    span.appendChild(metaSpan);
+                }
+
+                row.appendChild(box);
+                row.appendChild(span);
+
+                var state = checked === true;
+
+                function apply(next) {
+                    state = next;
+                    row.classList.toggle('is-checked', next);
+                    row.setAttribute('aria-checked', next ? 'true' : 'false');
+
+                    if (onChange) {
+                        onChange(next);
+                    }
+                }
+
+                function toggle(event) {
+                    if (event) {
+                        event.preventDefault();
+                    }
+
+                    apply(!state);
+                }
+
+                apply(state);
+
+                row.addEventListener('click', toggle);
+                row.addEventListener('keydown', function (event) {
+                    if (event.key === ' ' || event.key === 'Enter' || event.keyCode === 32 || event.keyCode === 13) {
+                        toggle(event);
+                    }
+                });
+
+                return row;
+            }
+
             function renderLibraries(libraries, selected) {
                 var box = byId('LibraryList');
                 box.innerHTML = '';
@@ -447,24 +580,12 @@
                 var selectedIds = (selected || []).map(normalizeId);
 
                 libraries.forEach(function (library) {
-                    var row = document.createElement('div');
-                    row.className = 'checkboxContainer av-row';
+                    var row = createCheckRow(
+                        library.Name + (library.CollectionType ? '  (' + library.CollectionType + ')' : ''),
+                        selectedIds.indexOf(normalizeId(library.Id)) >= 0,
+                        '');
 
-                    var label = document.createElement('label');
-                    label.className = 'emby-checkbox-label';
-
-                    var input = document.createElement('input');
-                    input.type = 'checkbox';
-                    input.setAttribute('is', 'emby-checkbox');
-                    input.value = library.Id;
-                    input.checked = selectedIds.indexOf(normalizeId(library.Id)) >= 0;
-
-                    var span = document.createElement('span');
-                    span.textContent = library.Name + (library.CollectionType ? '  (' + library.CollectionType + ')' : '');
-
-                    label.appendChild(input);
-                    label.appendChild(span);
-                    row.appendChild(label);
+                    row.setAttribute('data-value', library.Id);
                     box.appendChild(row);
                 });
             }
@@ -477,9 +598,10 @@
 
             function selectedLibraryIds() {
                 var ids = [];
-                page.querySelectorAll('#LibraryList input[type=checkbox]').forEach(function (input) {
-                    if (input.checked) {
-                        ids.push(input.value);
+                page.querySelectorAll('#LibraryList .av-row.is-checked').forEach(function (row) {
+                    var value = row.getAttribute('data-value');
+                    if (value) {
+                        ids.push(value);
                     }
                 });
                 return ids;
@@ -572,43 +694,24 @@
                 }
 
                 visible.forEach(function (actor) {
-                    var row = document.createElement('div');
-                    row.className = 'checkboxContainer av-row';
-
-                    var label = document.createElement('label');
-                    label.className = 'emby-checkbox-label';
-
-                    var input = document.createElement('input');
-                    input.type = 'checkbox';
-                    input.setAttribute('is', 'emby-checkbox');
-                    input.checked = selectedActors[actor.Name] === true;
-                    input.addEventListener('change', function () {
-                        if (input.checked) {
-                            selectedActors[actor.Name] = true;
-                        } else {
-                            delete selectedActors[actor.Name];
-                        }
-                    });
-
-                    var span = document.createElement('span');
-                    span.textContent = actor.Name;
-
-                    var count = document.createElement('span');
-                    count.className = 'av-count';
-                    count.textContent = actor.ItemCount + ' 部';
-
+                    // 作品数和"已在合并组"合成一句附加文案，跟在艺名后面。
+                    var meta = actor.ItemCount + ' 部';
                     if (actor.GroupId) {
-                        // 用「·」隔开，避免和作品数连成一句读起来像"小野夕子已在合并组5部"。
-                        var joined = document.createElement('span');
-                        joined.className = 'av-count';
-                        joined.textContent = '· 已在合并组';
-                        span.appendChild(joined);
+                        meta += ' · 已在合并组';
                     }
 
-                    label.appendChild(input);
-                    label.appendChild(span);
-                    label.appendChild(count);
-                    row.appendChild(label);
+                    var row = createCheckRow(
+                        actor.Name,
+                        selectedActors[actor.Name] === true,
+                        meta,
+                        function (checked) {
+                            if (checked) {
+                                selectedActors[actor.Name] = true;
+                            } else {
+                                delete selectedActors[actor.Name];
+                            }
+                        });
+
                     box.appendChild(row);
                 });
             }
