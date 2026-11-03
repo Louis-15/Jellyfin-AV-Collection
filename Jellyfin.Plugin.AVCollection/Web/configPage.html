@@ -351,6 +351,11 @@
                         </div>
 
                         <div class="av-actions">
+                            <!-- 「重新扫描演员」放在这一行的首位：它要同时刷新下面这个译名表
+                                 和「艺名合并」里的演员名单，跟译名操作是一组。 -->
+                            <button is="emby-button" type="button" id="ReloadActors" class="raised small">
+                                <span>重新扫描演员</span>
+                            </button>
                             <button is="emby-button" type="button" id="TranslateButton" class="raised">
                                 <span>翻译演员名</span>
                             </button>
@@ -456,9 +461,6 @@
                         </p>
 
                         <div class="av-actions">
-                            <button is="emby-button" type="button" id="ReloadActors" class="raised small">
-                                <span>重新扫描演员</span>
-                            </button>
                             <button is="emby-button" type="button" id="PreviewButton" class="raised small">
                                 <span>预览（不写库）</span>
                             </button>
@@ -826,24 +828,44 @@
                 });
             }
 
-            function loadActors(notify) {
+            function loadActors() {
                 Dashboard.showLoadingMsg();
                 return apiGet('AVCollection/Actors').then(function (list) {
                     actors = list || [];
                     renderActors();
-                    // 「重新扫描演员」按钮在「手动运行」区，演员列表却在「艺名合并」区，
-                    // 中间隔着一整个分区。不写一行结果，数据没变化时用户会以为按钮坏了。
-                    if (notify) {
-                        setStatusIn('RunStatus', '已重新扫描演员：共 ' + actors.length + ' 位，名单在上方「艺名合并」里。');
-                    }
                 }, function () {
                     byId('ActorList').textContent = '读取演员列表失败（需要管理员权限）。';
-                    if (notify) {
-                        setStatusIn('RunStatus', '读取演员列表失败（需要管理员权限）。', true);
-                    }
                 }).finally(function () {
                     Dashboard.hideLoadingMsg();
                 });
+            }
+
+            /**
+             * 重新扫描演员。
+             *
+             * 按钮在「合集命名」区，但它要更新的东西分在两个区：
+             * 译名表在本区下方，「艺名合并」里的演员名单在另一区。
+             * 两边各有一套独立的数据源，只刷一个会出现
+             * 「名单里多了新演员、译名表里却没有他」的不一致，所以三个都刷。
+             */
+            function rescanActors() {
+                Dashboard.showLoadingMsg();
+                setStatusIn('NamingStatus', '正在重新扫描演员…');
+
+                loadActors()
+                    .then(refreshGroups)
+                    .then(loadTranslations)
+                    .then(function () {
+                        setStatusIn('NamingStatus',
+                            '已重新扫描演员：共 ' + actors.length + ' 位。'
+                            + '「艺名合并」的名单和下面的译名表都已刷新。');
+                    }, function (error) {
+                        setStatusIn('NamingStatus',
+                            '重新扫描失败：' + describeError(error, '请确认当前账号是管理员'), true);
+                    })
+                    .finally(function () {
+                        Dashboard.hideLoadingMsg();
+                    });
             }
 
             // ---------- 合并组 ----------
@@ -1150,9 +1172,7 @@
                 loadLibraries(selectedLibraryIds());
             });
 
-            document.querySelector('#ReloadActors').addEventListener('click', function () {
-                loadActors(true);
-            });
+            document.querySelector('#ReloadActors').addEventListener('click', rescanActors);
 
             // 两个「立即同步」按钮（合集命名区 / 手动运行区）共用同一个处理函数，
             // 各自通过 data-status 指定结果写到哪个状态框。
