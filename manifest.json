@@ -9,12 +9,12 @@
     "imageUrl": "https://raw.githubusercontent.com/Louis-15/Jellyfin-AV-Collection/main/logo.png",
     "versions": [
       {
-        "version": "1.0.0.9",
-        "changelog": "Release 1.0.0.9\n\nAI 设置独立成组并内置供应商（Open Code / 自定义），Open Code 的地址与 x-opencode-session 请求头由代码固定、不再作为选项；「艺名合并」按钮行重排为 重新扫描演员 / 合并选中的艺名 / AI 智能合并 / 预览（不写库）/ 立即同步。",
+        "version": "1.0.1.0",
+        "changelog": "Release 1.0.1.0\n\nAI 设置新增「测试连接」按钮（极短请求验证地址/Key/模型，返回耗时与真实错误）；默认超时 60→300 秒（实测推理模型判断 20 位演员需 149 秒，60 秒必然超时）；超时改为写日志并给出可操作提示；x-opencode-session 改用固定值以命中网关缓存；HTTP 错误码翻译成中文说明。",
         "targetAbi": "12.2.0.0",
-        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.0.9/av-collection_1.0.0.9.zip",
-        "checksum": "c0dd7485843506c2302c9ab4029bb1e6",
-        "timestamp": "2026-11-03T15:56:33Z"
+        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.1.0/av-collection_1.0.1.0.zip",
+        "checksum": "c4d751fa8b6525471bd6ecf117870f8b",
+        "timestamp": "2026-11-03T16:16:18Z"
       }
     ]
   }
