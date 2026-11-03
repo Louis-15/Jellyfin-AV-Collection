@@ -365,8 +365,11 @@
                             <button is="emby-button" type="button" id="TranslateButton" class="raised">
                                 <span>翻译演员名</span>
                             </button>
-                            <button is="emby-button" type="button" id="ReloadTranslations" class="raised small">
-                                <span>刷新译名表</span>
+                            <!-- 改完译名就地同步，不用再滚到最下面的「手动运行」区。
+                                 两个「立即同步」故意各放一份，共用同一个处理函数。 -->
+                            <button is="emby-button" type="button" id="NamingRunNow"
+                                    class="raised button-submit av-run-now">
+                                <span>立即同步</span>
                             </button>
                         </div>
 
@@ -479,7 +482,8 @@
                             <button is="emby-button" type="button" id="PreviewButton" class="raised small">
                                 <span>预览（不写库）</span>
                             </button>
-                            <button is="emby-button" type="button" id="MergeRunNow" class="raised button-submit">
+                            <button is="emby-button" type="button" id="MergeRunNow"
+                                    class="raised button-submit av-run-now">
                                 <span>立即同步</span>
                             </button>
                         </div>
@@ -523,14 +527,14 @@
 
             /**
              * 在「共享」状态框里显示同一条消息。
-             * 「艺名合并」和「手动运行」各有一个状态框，两处都写一遍，
+             * 「合集命名」「艺名合并」「手动运行」各有一个状态框，几处都写一遍，
              * 无论用户正看着哪一段都能看到结果。
              */
             function setStatus(message, bad) {
                 page.querySelectorAll('.av-status').forEach(function (box) {
-                    // AI 接口区（测试连接）和合集命名区（翻译结果）各有专属状态框，
+                    // AI 接口区（「测试连接」）有专属状态框，
                     // 不能被合并 / 预览 / 同步的消息覆盖掉。
-                    if (box.id === 'AiTestStatus' || box.id === 'TranslateStatus') {
+                    if (box.id === 'AiTestStatus') {
                         return;
                     }
 
@@ -1178,11 +1182,16 @@
             document.querySelector('#ReloadActors').addEventListener('click', function () {
                 loadActors(true);
             });
-            document.querySelector('#MergeRunNow').addEventListener('click', runNow);
+
+            // 两个「立即同步」按钮（合集命名区 / 手动运行区）共用同一个处理函数。
+            // 用 class 统一绑定，以后再加一处按钮只改 HTML 就行。
+            document.querySelectorAll('.av-run-now').forEach(function (button) {
+                button.addEventListener('click', runNow);
+            });
+
             document.querySelector('#AiProvider').addEventListener('change', syncAiProviderRows);
             document.querySelector('#TestAiButton').addEventListener('click', testAi);
             document.querySelector('#TranslateButton').addEventListener('click', translateNames);
-            document.querySelector('#ReloadTranslations').addEventListener('click', loadTranslations);
             document.querySelector('#ActorSearch').addEventListener('input', renderActors);
             document.querySelector('#MergeSelected').addEventListener('click', mergeSelected);
             document.querySelector('#PreviewButton').addEventListener('click', preview);

@@ -54,6 +54,16 @@ git -C $root add -A
 git -C $root commit -m "Release $Version" -m $Changelog
 if ($LASTEXITCODE -ne 0) { throw 'git commit 失败（是否没有改动？）' }
 
+# CI 每次发版后会把新 checksum 回写进 manifest.json 并提交回 main，
+# 所以本地 main 总是落后一个提交，直接 push 必然被拒（non-fast-forward）。
+# 先追平远端再打 tag —— tag 必须打在 rebase 之后的提交上，
+# 否则 tag 指向被丢弃的旧提交，Release 里的 zip 会和 main 对不上。
+git -C $root fetch origin main
+git -C $root rebase origin/main
+if ($LASTEXITCODE -ne 0) {
+    throw 'git rebase origin/main 失败：先手动解决冲突，再执行 git tag / git push'
+}
+
 # annotated tag：workflow 会把 tag 消息当作插件目录里的更新说明。
 git -C $root tag -a "v$Version" -m $Changelog
 git -C $root push origin main
