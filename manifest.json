@@ -9,12 +9,12 @@
     "imageUrl": "https://raw.githubusercontent.com/Louis-15/Jellyfin-AV-Collection/main/logo.png",
     "versions": [
       {
-        "version": "1.0.0.4",
-        "changelog": "Release 1.0.0.4\n\n修设置页显示没有找到媒体库：ApiClient.ajax 对 GET 不返回解析后的 JSON，改用 ApiClient.getJSON；GUID 比较增加连字符/大小写归一化。",
+        "version": "1.0.0.5",
+        "changelog": "Release 1.0.0.5\n\n修「艺名合并」勾选框点了没反应：Jellyfin 的 emby-checkbox 对勾样式依赖 `input + span + .checkboxOutline` 的紧邻兄弟顺序，行里多出作品数就永远匹配不上；动态列表改为自己画的方框 + is-checked 驱动，同时补齐键盘操作与 aria。",
         "targetAbi": "12.2.0.0",
-        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.0.4/av-collection_1.0.0.4.zip",
-        "checksum": "571ffa56d556d86ed19d21a21860d383",
-        "timestamp": "2026-11-03T14:33:34Z"
+        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.0.5/av-collection_1.0.0.5.zip",
+        "checksum": "7ddcf9278620db45e25d939fdc40f60b",
+        "timestamp": "2026-11-03T14:47:42Z"
       }
     ]
   }
