@@ -9,12 +9,12 @@
     "imageUrl": "https://raw.githubusercontent.com/Louis-15/Jellyfin-AV-Collection/main/logo.png",
     "versions": [
       {
-        "version": "1.0.2.5",
-        "changelog": "Release 1.0.2.5\n\n修正「合集命名」区说明文案：本区已有「立即同步」，不必再滚到「手动运行」",
+        "version": "1.0.2.6",
+        "changelog": "Release 1.0.2.6\n\n去掉「艺名合并」区的合集名/封面艺名两个输入框；「清理误匹配的元数据」移到「其他」",
         "targetAbi": "12.2.0.0",
-        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.2.5/av-collection_1.0.2.5.zip",
-        "checksum": "0d404327e3ce3c33fa072dd2a96cfc52",
-        "timestamp": "2026-11-03T17:52:58Z"
+        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.2.6/av-collection_1.0.2.6.zip",
+        "checksum": "6ccdf1653d74809dd233bf20202f30c5",
+        "timestamp": "2026-11-03T18:01:14Z"
       }
     ]
   }
