@@ -1,7 +1,7 @@
 # AV Collection · 项目交接文档
 
 > 这份文档写给**接手继续开发的人或 AI**。读完这一篇就能直接改代码，不需要翻聊天记录。
-> 最后更新：2026-11-03，当前版本 **1.0.0.6**。
+> 最后更新：2026-11-03，当前版本 **1.0.0.8**。
 
 ---
 
@@ -173,7 +173,19 @@ Jellyfin.Plugin.AVCollection/
     （这个 bug 让"正在同步/同步完成"的提示一直看不见，是测试里量 `getComputedStyle` 才发现的。）
 12. **改配置 ≠ 生效**：合并组保存后必须跑一次同步才会真正改合集。
     所以「艺名合并」区域也放了一个「立即同步」按钮，`setStatus` 会同时写两处状态框。
-13. **不要用 `is="emby-checkbox"` 构造动态复选行**：
+13. **`IPeopleRepository.GetPeopleByItems` 返回的 `PersonInfo.Id` 不是 Person 条目 Id**（这是最坑的一个）：
+    它是另一个 GUID，`_libraryManager.GetItemById(personInfo.Id)` 永远是 null。
+    症状：**每位演员都被判定"没有头像"，合集封面永远设不上**，日志里一片
+    「「XXX」没有头像，跳过封面」。
+    正确做法：扫描时用 `_libraryManager.GetItemList(new InternalItemsQuery {
+    Recursive = true, IncludeItemTypes = [BaseItemKind.Person] })` **一次性按名字**建索引，
+    再回填到 `ActorInfo.PersonId`（见 `ActorIndex.ResolvePersonIds`）。
+    旧 Python 脚本没这个问题，因为它用的是 REST `/Items?fields=People` 里的 DTO `Id`，
+    那个才是真实的 Person 条目 Id。
+
+    排查手法：拿插件返回的 `PersonId` 去 `/Items/{id}/Images/Primary`，
+    如果 404 但 `/Persons/{name}` 能查到同一个演员且有图像，就说明 id 用错了。
+14. **不要用 `is="emby-checkbox"` 构造动态复选行**：
     - `emby-checkbox` 是自定义元素，靠 `attachedCallback` 往 label 末尾插
       `<span class="checkboxOutline">`。JS 创建、随后才挂进文档的行容易漏掉升级。
     - 对勾的显隐依赖 `.emby-checkbox:checked + span + .checkboxOutline`，
@@ -244,6 +256,8 @@ dotnet test .\tests\Jellyfin.Plugin.AVCollection.Tests\...\csproj -c Release
 | **1.0.0.4** | 修设置页"没有找到媒体库"：`ApiClient.ajax` 对 GET 不返回解析后的 JSON，改用 `getJSON`；GUID 大小写/连字符归一化 |
 | **1.0.0.5** | 修「艺名合并」勾选框点了没反应：动态行不再用 `is="emby-checkbox"`（对勾依赖紧邻兄弟选择器，多一个元素就匹配不上），改为自己画的 `.av-box` + `is-checked` 驱动 |
 | **1.0.0.6** | 「艺名合并」区域新增「立即同步」按钮（合并只改配置，合集要同步才变）；顺手修状态框永远不显示（`style.display = ''` 会退回 CSS 的 `display:none`，必须显式给 `block`） |
+| **1.0.0.7** | **修合集封面永远设不上**：`IPeopleRepository.GetPeopleByItems` 返回的 `PersonInfo.Id` 不是 Person 条目 Id，`GetItemById` 永远 null → 全体演员被判"没头像"。改为扫描时按名字解析真实 Person 条目 |
+| **1.0.0.8** | 封面取图补上"远程头像"分支：`ImageInfo.Path` 是 http(s) 时走 `HttpClient` 下载（等价于旧脚本一律走 REST 取图的做法），本地文件仍直接读盘 |
 
 ### 仓库推送注意
 

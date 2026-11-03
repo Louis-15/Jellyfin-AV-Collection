@@ -27,22 +27,26 @@ public sealed class CollectionWriter
     private readonly ILibraryManager _libraryManager;
     private readonly ICollectionManager _collectionManager;
     private readonly IProviderManager _providerManager;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly PluginLog _log;
 
     /// <summary>初始化写入器。</summary>
     /// <param name="libraryManager">媒体库服务。</param>
     /// <param name="collectionManager">合集服务。</param>
     /// <param name="providerManager">元数据 / 图片服务。</param>
+    /// <param name="httpClientFactory">用以下载"还没落地到本地"的远程演员头像。</param>
     /// <param name="log">日志。</param>
     public CollectionWriter(
         ILibraryManager libraryManager,
         ICollectionManager collectionManager,
         IProviderManager providerManager,
+        IHttpClientFactory httpClientFactory,
         PluginLog log)
     {
         _libraryManager = libraryManager;
         _collectionManager = collectionManager;
         _providerManager = providerManager;
+        _httpClientFactory = httpClientFactory;
         _log = log;
     }
 
@@ -330,34 +334,112 @@ public sealed class CollectionWriter
             return;
         }
 
-        // 远程图片的 Path 是 http(s) URL，File.Exists 一定为 false。
-        // 这种图 Jellyfin 还没落地到磁盘，这里不处理，只打日志说明原因。
-        if (!File.Exists(source.Path))
+        // 两条取图路径，和旧脚本（jellyfin-actor-collections.py）等价：
+        //   本地文件  → 直接读磁盘（快，绝大多数情况）
+        //   远程 URL  → Jellyfin 还没把图落到本地，必须走网络取（旧脚本一律走
+        //               REST /Items/{id}/Images/Primary，天然覆盖这种情况）
+        byte[]? imageBytes = null;
+        string mime;
+
+        if (File.Exists(source.Path))
         {
-            _log.Info($"「{posterAlias}」的头像还不是本地文件（{source.Path}），跳过封面");
+            // 幂等：封面已经是同一张图就不重复上传，
+            // 否则每次同步都会写一次磁盘 + 触发一次图片处理。
+            var current = boxSet.ImageInfos?.FirstOrDefault(i => i.Type == ImageType.Primary);
+            if (current is not null && !string.IsNullOrEmpty(current.Path) && File.Exists(current.Path)
+                && Md5Equals(current.Path, source.Path))
+            {
+                return;
+            }
+
+            try
+            {
+                imageBytes = await File.ReadAllBytesAsync(source.Path, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _log.Error($"「{posterAlias}」的头像读取失败（{source.Path}）", ex);
+                return;
+            }
+
+            mime = GuessMimeType(source.Path);
+        }
+        else if (source.Path.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+        {
+            var fetched = await DownloadImageAsync(source.Path, cancellationToken).ConfigureAwait(false);
+            if (fetched is null)
+            {
+                _log.Info($"「{posterAlias}」的头像下载失败（{source.Path}），跳过封面");
+                return;
+            }
+
+            (imageBytes, mime) = fetched.Value;
+        }
+        else
+        {
+            _log.Info($"「{posterAlias}」的头像路径既不是本地文件也不是远程地址（{source.Path}），跳过封面");
             return;
         }
 
-        // 幂等：封面已经是同一张图就不重复上传，否则每次同步都会写一次磁盘 + 触发一次图片处理。
-        var current = boxSet.ImageInfos?.FirstOrDefault(i => i.Type == ImageType.Primary);
-        if (current is not null && !string.IsNullOrEmpty(current.Path) && File.Exists(current.Path)
-            && Md5Equals(current.Path, source.Path))
+        if (imageBytes is null || imageBytes.Length == 0)
         {
+            _log.Info($"「{posterAlias}」的头像内容为空，跳过封面");
             return;
         }
 
         try
         {
-            await using var stream = File.OpenRead(source.Path);
-            var mime = GuessMimeType(source.Path);
+            using var stream = new MemoryStream(imageBytes, writable: false);
             await _providerManager
                 .SaveImage(boxSet, stream, mime, ImageType.Primary, 0, cancellationToken)
                 .ConfigureAwait(false);
-            _log.Info($"「{boxSet.Name}」封面已设为「{posterAlias}」的头像");
+            _log.Info($"「{boxSet.Name}」封面已设为「{posterAlias}」的头像（{imageBytes.Length} B）");
         }
         catch (Exception ex)
         {
             _log.Error($"「{boxSet.Name}」封面上传失败", ex);
+        }
+    }
+
+    /// <summary>
+    /// 下载远程头像。只用于 <see cref="ImageInfo.Path"/> 是 URL 的情况
+    /// （远程图片提供者给出了地址但 Jellyfin 还没缓存到本地）。
+    /// </summary>
+    /// <param name="url">图片地址。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>图片字节与 MIME，失败为 null。</returns>
+    private async Task<(byte[] Bytes, string Mime)?> DownloadImageAsync(
+        string url,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var client = _httpClientFactory.CreateClient(nameof(CollectionWriter));
+            client.Timeout = TimeSpan.FromSeconds(30);
+
+            using var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+            var contentType = response.Content.Headers.ContentType?.MediaType;
+
+            // 有些 CDN 不返回 Content-Type，或返回 application/octet-stream，
+            // 这种情况下按 URL 扩展名猜，猜不出就按 jpeg 处理。
+            if (string.IsNullOrWhiteSpace(contentType)
+                || !contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            {
+                contentType = GuessMimeType(new Uri(url).AbsolutePath);
+            }
+
+            return (bytes, contentType);
+        }
+        catch (Exception ex)
+        {
+            _log.Warn($"下载头像 {url} 失败：{ex.Message}");
+            return null;
         }
     }
 
