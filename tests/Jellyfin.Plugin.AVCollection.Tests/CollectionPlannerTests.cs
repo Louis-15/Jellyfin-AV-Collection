@@ -263,4 +263,84 @@ public class CollectionPlannerTests
 
         Assert.Equal(["A", "B", "C"], plans.Select(p => p.DisplayName));
     }
+
+    [Fact]
+    public void 有译名时合集用中文名()
+    {
+        var config = new PluginConfiguration();
+        var names = new Dictionary<string, string> { ["つばさ舞"] = "翼舞" };
+
+        var plan = CollectionPlanner.BuildPlans([Actor("つばさ舞", 3)], config, names).Single();
+
+        Assert.Equal("翼舞", plan.DisplayName);
+
+        // 别名必须保留日文原名：状态键、旧合集认领、AI 缓存都靠它。
+        Assert.Equal(["つばさ舞"], plan.Aliases);
+    }
+
+    [Fact]
+    public void 没有译名的演员回退原名()
+    {
+        var config = new PluginConfiguration();
+        var names = new Dictionary<string, string> { ["つばさ舞"] = "翼舞" };
+
+        var plans = CollectionPlanner.BuildPlans(
+            [Actor("つばさ舞", 1), Actor("水野朝陽", 1)],
+            config,
+            names);
+
+        Assert.Equal(["水野朝陽", "翼舞"], plans.Select(p => p.DisplayName));
+    }
+
+    [Fact]
+    public void 译名为空白时回退原名而不是生成空合集名()
+    {
+        var config = new PluginConfiguration();
+        var names = new Dictionary<string, string> { ["小野夕子"] = "   " };
+
+        var plan = CollectionPlanner.BuildPlans([Actor("小野夕子", 1)], config, names).Single();
+        Assert.Equal("小野夕子", plan.DisplayName);
+    }
+
+    [Fact]
+    public void 合并组的合集名每个艺名都各自翻译()
+    {
+        var config = new PluginConfiguration
+        {
+            MaxAliasesInName = 2,
+            AliasGroups = [new ActorAliasGroup { Id = "g1", Aliases = ["葵", "小野夕子"] }]
+        };
+
+        var names = new Dictionary<string, string>
+        {
+            ["葵"] = "葵",
+            ["小野夕子"] = "小野夕子"
+        };
+
+        var plan = CollectionPlanner
+            .BuildPlans([Actor("小野夕子", 5), Actor("葵", 2)], config, names)
+            .Single();
+
+        Assert.Equal("小野夕子 / 葵", plan.DisplayName);
+
+        // 合并组的 GroupId 用组 Id，不受译名影响。
+        Assert.Equal("group:g1", plan.GroupId);
+    }
+
+    [Fact]
+    public void 手动指定的合集名优先于译名()
+    {
+        var config = new PluginConfiguration
+        {
+            AliasGroups =
+            [
+                new ActorAliasGroup { Id = "g1", Aliases = ["葵", "小野夕子"], DisplayName = "自定义名字" }
+            ]
+        };
+
+        var names = new Dictionary<string, string> { ["葵"] = "葵中文", ["小野夕子"] = "小野中文" };
+
+        var plan = CollectionPlanner.BuildPlans([Actor("葵", 1), Actor("小野夕子", 1)], config, names).Single();
+        Assert.Equal("自定义名字", plan.DisplayName);
+    }
 }

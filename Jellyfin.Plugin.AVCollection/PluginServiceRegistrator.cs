@@ -22,10 +22,12 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
 
         services.AddSingleton<PluginLog>();
         services.AddSingleton<RuntimeState>();
+        services.AddSingleton<TranslationStore>();
         services.AddSingleton<ActorIndex>();
         services.AddSingleton<CollectionWriter>();
         services.AddSingleton<CollectionSyncJob>();
-        services.AddSingleton<AiAliasAdvisor>();
+        services.AddSingleton<AiClient>();
+        services.AddSingleton<AiNameTranslator>();
 
         services.AddSingleton<ActorCollectionSyncTask>();
     }

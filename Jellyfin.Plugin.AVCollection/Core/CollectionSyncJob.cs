@@ -22,6 +22,8 @@ public sealed class CollectionSyncJob
     private readonly ActorIndex _index;
     private readonly CollectionWriter _writer;
     private readonly RuntimeState _state;
+    private readonly TranslationStore _translations;
+    private readonly AiNameTranslator _translator;
     private readonly ILibraryManager _libraryManager;
     private readonly PluginLog _log;
 
@@ -32,18 +34,24 @@ public sealed class CollectionSyncJob
     /// <param name="index">演员扫描器。</param>
     /// <param name="writer">合集写入器。</param>
     /// <param name="state">运行期状态。</param>
+    /// <param name="translations">演员名中文译名缓存。</param>
+    /// <param name="translator">AI 翻译器（用于同步时补齐缺失的译名）。</param>
     /// <param name="libraryManager">媒体库服务（删除旧合集用）。</param>
     /// <param name="log">日志。</param>
     public CollectionSyncJob(
         ActorIndex index,
         CollectionWriter writer,
         RuntimeState state,
+        TranslationStore translations,
+        AiNameTranslator translator,
         ILibraryManager libraryManager,
         PluginLog log)
     {
         _index = index;
         _writer = writer;
         _state = state;
+        _translations = translations;
+        _translator = translator;
         _libraryManager = libraryManager;
         _log = log;
     }
@@ -119,7 +127,36 @@ public sealed class CollectionSyncJob
 
         progress?.Report(0.1);
 
-        var plans = CollectionPlanner.BuildPlans(actors, config);
+        // 翻译：只在开启「用中文名命名合集」时才做。
+        // 已有缓存的名字不会重复送审；翻译失败不阻止同步，回退成日文原名。
+        IReadOnlyDictionary<string, string>? displayNames = null;
+        if (config.Ai?.TranslateNames == true)
+        {
+            try
+            {
+                var result = await _translator
+                    .TranslateAsync(actors.Select(a => a.Name), config.Ai, force: false, cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (result.Requested > 0)
+                {
+                    _log.Info("演员名翻译：" + result.Describe());
+                }
+
+                displayNames = _translations.All;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // 翻译是"锦上添花"：失败就用原名，不能因此让整次同步报废。
+                _log.Error("演员名翻译失败，本次用日文原名命名合集", ex);
+            }
+        }
+
+        var plans = CollectionPlanner.BuildPlans(actors, config, displayNames);
         summary.PlanCount = plans.Count;
         _log.Info($"演员 {actors.Count} 位，规划出 {plans.Count} 个合集");
 
@@ -127,7 +164,13 @@ public sealed class CollectionSyncJob
         {
             foreach (var plan in plans)
             {
-                summary.Details.Add($"{(plan.IsMergeGroup ? "[合并] " : string.Empty)}{plan.DisplayName}：{plan.ItemIds.Count} 部（艺名 {string.Join(" / ", plan.Aliases)}）");
+                // 预览里同时给出日文原名，方便核对翻译对不对。
+                var aliasText = string.Join(" / ", plan.Aliases);
+                var nameText = string.Equals(plan.DisplayName, aliasText, StringComparison.Ordinal)
+                    ? string.Empty
+                    : $"（原名 {aliasText}）";
+                summary.Details.Add(
+                    $"{(plan.IsMergeGroup ? "[合并] " : string.Empty)}{plan.DisplayName}{nameText}：{plan.ItemIds.Count} 部");
             }
 
             progress?.Report(1);

@@ -132,16 +132,21 @@ public class AiOptions
     public string Model { get; set; } = AiProviders.DefaultOpenCodeModel;
 
     /// <summary>
+    /// 是否用 AI 把演员名翻译成中文，并用中文名给合集命名。
+    ///
+    /// 演员本名（Person 名字）**不会被修改** —— 那是另一个刮削插件的职责。
+    /// 这里只影响合集的显示名，例如「つばさ舞」的合集命名为「翼舞」。
+    /// </summary>
+    public bool TranslateNames { get; set; }
+
+    /// <summary>
     /// 单次请求超时秒数。
     ///
-    /// 默认 300 而不是 60：实测用 <c>deepseek-v4.1-flash</c> 判断 20 位演员，
-    /// Open Code 网关要花 **149 秒**（推理模型会先想一大段）。
+    /// 默认 300 而不是 60：实测推理模型处理一批演员名，
+    /// Open Code 网关要花 **100-150 秒**（推理模型会先想一大段）。
     /// 60 秒必然超时，而且超时请求不产生日志，很难排查。
     /// </summary>
     public int TimeoutSeconds { get; set; } = 300;
-
-    /// <summary>一次送审多少个演员。列表太长会撑爆上下文，默认 120。</summary>
-    public int MaxActorsPerRequest { get; set; } = 120;
 
     /// <summary>是否选中了内置的 Open Code 供应商。</summary>
     [System.Xml.Serialization.XmlIgnore]
@@ -158,6 +163,26 @@ public class AiOptions
         return IsOpenCode
             ? AiProviders.OpenCodeBaseUrl
             : (BaseUrl ?? string.Empty).Trim();
+    }
+
+    /// <summary>
+    /// 复制一份并替换超时。用于「测试连接」这种需要用更短超时的场景，
+    /// 避免改动用户保存的真实配置。
+    /// </summary>
+    /// <param name="timeoutSeconds">新超时秒数。</param>
+    /// <returns>副本。</returns>
+    public AiOptions CloneWithTimeout(int timeoutSeconds)
+    {
+        return new AiOptions
+        {
+            Enabled = Enabled,
+            Provider = Provider,
+            BaseUrl = BaseUrl,
+            ApiKey = ApiKey,
+            Model = Model,
+            TimeoutSeconds = timeoutSeconds,
+            TranslateNames = TranslateNames
+        };
     }
 }
 

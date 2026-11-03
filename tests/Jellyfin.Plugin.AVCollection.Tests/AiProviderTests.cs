@@ -65,11 +65,38 @@ public class AiProviderTests
     }
 
     [Fact]
-    public void 默认超时足够跑完推理模型()
+    public void 默认超时足够跑完一批翻译()
     {
-        // 实测 deepseek-v4.1-flash 判断 20 位演员要 149 秒；
-        // 默认超时如果回到 60 秒，AI 智能合并会 100% 超时。
+        // 实测推理模型处理 20 位演员要 100-150 秒；
+        // 默认超时如果回到 60 秒，翻译会 100% 超时。
         Assert.True(new AiOptions().TimeoutSeconds >= 300);
+    }
+
+    [Fact]
+    public void 复制超时不会影响其它字段()
+    {
+        var original = new AiOptions
+        {
+            Enabled = true,
+            Provider = AiProviders.Custom,
+            BaseUrl = "https://api.example.com/v1",
+            ApiKey = "sk-test",
+            Model = "some-model",
+            TimeoutSeconds = 300,
+            TranslateNames = true
+        };
+
+        var copy = original.CloneWithTimeout(45);
+
+        Assert.Equal(45, copy.TimeoutSeconds);
+        Assert.Equal(original.Provider, copy.Provider);
+        Assert.Equal(original.BaseUrl, copy.BaseUrl);
+        Assert.Equal(original.ApiKey, copy.ApiKey);
+        Assert.Equal(original.Model, copy.Model);
+        Assert.Equal(original.TranslateNames, copy.TranslateNames);
+
+        // 原对象必须保持不变，否则「测试连接」会改掉用户保存的超时。
+        Assert.Equal(300, original.TimeoutSeconds);
     }
 
     [Fact]

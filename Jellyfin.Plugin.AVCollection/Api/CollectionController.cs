@@ -22,7 +22,8 @@ public sealed class CollectionController : ControllerBase
 {
     private readonly ActorIndex _index;
     private readonly CollectionSyncJob _job;
-    private readonly AiAliasAdvisor _advisor;
+    private readonly AiNameTranslator _translator;
+    private readonly TranslationStore _translations;
     private readonly RuntimeState _state;
     private readonly ILibraryManager _libraryManager;
     private readonly PluginLog _log;
@@ -30,21 +31,24 @@ public sealed class CollectionController : ControllerBase
     /// <summary>初始化控制器。</summary>
     /// <param name="index">演员扫描器。</param>
     /// <param name="job">同步任务。</param>
-    /// <param name="advisor">AI 建议。</param>
+    /// <param name="translator">AI 翻译器。</param>
+    /// <param name="translations">译名缓存。</param>
     /// <param name="state">运行期状态。</param>
     /// <param name="libraryManager">媒体库服务。</param>
     /// <param name="log">日志。</param>
     public CollectionController(
         ActorIndex index,
         CollectionSyncJob job,
-        AiAliasAdvisor advisor,
+        AiNameTranslator translator,
+        TranslationStore translations,
         RuntimeState state,
         ILibraryManager libraryManager,
         PluginLog log)
     {
         _index = index;
         _job = job;
-        _advisor = advisor;
+        _translator = translator;
+        _translations = translations;
         _state = state;
         _libraryManager = libraryManager;
         _log = log;
@@ -251,7 +255,7 @@ public sealed class CollectionController : ControllerBase
     ///
     /// 只发一个极短的请求，几十秒内就能给出结论：
     /// 地址通不通、Key 对不对、模型名存不存在。
-    /// 用户配完 Key 后先点这个，比直接点「AI 智能合并」等两分钟再失败要友好得多。
+    /// 用户配完 Key 后先点这个，比直接等一次完整翻译要友好得多。
     /// </summary>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>测试结果。</returns>
@@ -259,7 +263,7 @@ public sealed class CollectionController : ControllerBase
     [Authorize(Policy = "RequiresElevation")]
     public async Task<IActionResult> TestAiAsync(CancellationToken cancellationToken)
     {
-        var result = await _advisor
+        var result = await _translator
             .TestAsync(Plugin.Current.Ai, cancellationToken)
             .ConfigureAwait(false);
 
@@ -274,24 +278,108 @@ public sealed class CollectionController : ControllerBase
         });
     }
 
-    /// <summary>请求 AI 给出"可能是同一个人"的建议。只返回建议，不写配置。</summary>
+    /// <summary>
+    /// 列出「演员原名 → 中文译名」的完整对照表。
+    ///
+    /// 设置页用它渲染可编辑的译名表：AI 翻译不会 100% 准，
+    /// 用户要能一眼看出错在哪并直接改掉。
+    /// </summary>
     /// <param name="cancellationToken">取消令牌。</param>
-    /// <returns>建议列表与可能的错误。</returns>
-    [HttpPost("Suggest")]
+    /// <returns>对照表。</returns>
+    [HttpGet("Translations")]
     [Authorize(Policy = "RequiresElevation")]
-    public async Task<IActionResult> SuggestAsync(CancellationToken cancellationToken)
+    public async Task<IActionResult> TranslationsAsync(CancellationToken cancellationToken)
     {
         var config = Plugin.Current;
         var actors = await GetActorsAsync(config, cancellationToken).ConfigureAwait(false);
-        var (suggestions, error) = await _advisor
-            .SuggestAsync(actors, config.Ai, cancellationToken)
+        var cached = _translations.All;
+
+        var rows = actors
+            .OrderByDescending(a => a.ItemIds.Count)
+            .ThenBy(a => a.Name, StringComparer.Ordinal)
+            .Select(a =>
+            {
+                var hasTranslation = cached.TryGetValue(a.Name, out var translated);
+                return new
+                {
+                    original = a.Name,
+                    translated = hasTranslation ? translated : a.Name,
+                    hasTranslation,
+                    itemCount = a.ItemIds.Count
+                };
+            })
+            .ToList();
+
+        return Ok(new
+        {
+            rows,
+            total = rows.Count,
+            translated = rows.Count(r => r.hasTranslation),
+            aiEnabled = config.Ai?.TranslateNames == true
+        });
+    }
+
+    /// <summary>
+    /// 让 AI 翻译缺失的演员名（或全部重翻）。
+    /// 结果写入缓存，下一次同步就会用中文名命名合集。
+    /// </summary>
+    /// <param name="request">请求参数。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>翻译结果。</returns>
+    [HttpPost("Translations")]
+    [Authorize(Policy = "RequiresElevation")]
+    public async Task<IActionResult> TranslateAsync(
+        [FromBody] TranslateRequest? request,
+        CancellationToken cancellationToken)
+    {
+        var config = Plugin.Current;
+        var actors = await GetActorsAsync(config, cancellationToken).ConfigureAwait(false);
+
+        var result = await _translator
+            .TranslateAsync(actors.Select(a => a.Name), config.Ai, request?.Force == true, cancellationToken)
             .ConfigureAwait(false);
 
         return Ok(new
         {
-            suggestions = suggestions.Select(s => new { aliases = s.Aliases, reason = s.Reason }),
-            error
+            ok = result.Ok,
+            summary = result.Describe(),
+            requested = result.Requested,
+            translated = result.Translated.Count,
+            elapsedMs = result.ElapsedMs,
+            error = result.Error
         });
+    }
+
+    /// <summary>
+    /// 手工修正某个演员的译名。写完立即生效，且不会被后续 AI 翻译覆盖。
+    /// </summary>
+    /// <param name="request">修正内容。</param>
+    /// <returns>操作结果。</returns>
+    [HttpPost("Translations/Set")]
+    [Authorize(Policy = "RequiresElevation")]
+    public IActionResult SetTranslation([FromBody] TranslateSetRequest request)
+    {
+        if (request is null || string.IsNullOrWhiteSpace(request.Original))
+        {
+            return BadRequest(new { error = "缺少 original" });
+        }
+
+        var original = request.Original.Trim();
+        var translated = (request.Translated ?? string.Empty).Trim();
+
+        if (translated.Length == 0)
+        {
+            // 清空表示"删掉这条缓存，下次重新翻译"。
+            _translations.Remove(original);
+            _translations.Save();
+            return Ok(new { ok = true, original, translated = original, removed = true });
+        }
+
+        _translations.Set(original, translated);
+        _translations.Save();
+        _log.Info($"译名已手工修正：{original} → {translated}");
+
+        return Ok(new { ok = true, original, translated });
     }
 
     /// <summary>预览：只计算会得到哪些合集，不写库。</summary>
@@ -385,6 +473,23 @@ public sealed class GroupDto
 
     /// <summary>用哪个艺名的头像做封面（空表示用作品数最多的）。</summary>
     public string PosterAlias { get; set; } = string.Empty;
+}
+
+/// <summary>翻译请求。</summary>
+public sealed class TranslateRequest
+{
+    /// <summary>true 表示忽略缓存，把所有名字重新翻译一遍。</summary>
+    public bool Force { get; set; }
+}
+
+/// <summary>手工修正译名的请求。</summary>
+public sealed class TranslateSetRequest
+{
+    /// <summary>演员原名（日文）。</summary>
+    public string? Original { get; set; }
+
+    /// <summary>新的中文名。留空表示删除缓存、下次重新翻译。</summary>
+    public string? Translated { get; set; }
 }
 
 /// <summary>合并组保存请求。</summary>

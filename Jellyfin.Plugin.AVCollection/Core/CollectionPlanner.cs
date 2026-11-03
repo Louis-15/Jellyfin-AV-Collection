@@ -17,13 +17,31 @@ public static class CollectionPlanner
     /// </summary>
     /// <param name="actors">扫描到的演员（可能为空，调用方应先做下限保护）。</param>
     /// <param name="config">插件配置。</param>
+    /// <param name="displayNames">
+    /// 演员原名 → 合集显示名（中文译名）。
+    /// 为 null 或查不到时直接用原名，所以"关掉翻译"和"某个名字没翻出来"走同一条路径。
+    /// </param>
     /// <returns>按合集名排序的计划列表。</returns>
     public static IReadOnlyList<CollectionPlan> BuildPlans(
         IEnumerable<ActorInfo> actors,
-        PluginConfiguration config)
+        PluginConfiguration config,
+        IReadOnlyDictionary<string, string>? displayNames = null)
     {
         ArgumentNullException.ThrowIfNull(actors);
         ArgumentNullException.ThrowIfNull(config);
+
+        // 合集名优先用译名。返回空/空白一律回退原名，避免出现空合集名。
+        string ResolveName(string original)
+        {
+            if (displayNames is not null
+                && displayNames.TryGetValue(original, out var translated)
+                && !string.IsNullOrWhiteSpace(translated))
+            {
+                return translated.Trim();
+            }
+
+            return original;
+        }
 
         // 艺名 → 所属合并组。同名艺名出现在多个组里时以第一个为准，
         // 避免用户配重复之后出现"一个演员进两个合集"。
@@ -106,7 +124,7 @@ public static class CollectionPlanner
 
             var manualName = bucket.Group?.DisplayName?.Trim();
             var displayName = string.IsNullOrEmpty(manualName)
-                ? string.Join(" / ", ranked.Take(maxAliases).Select(a => a.Name))
+                ? string.Join(" / ", ranked.Take(maxAliases).Select(a => ResolveName(a.Name)))
                 : manualName!;
 
             var items = new HashSet<Guid>();
