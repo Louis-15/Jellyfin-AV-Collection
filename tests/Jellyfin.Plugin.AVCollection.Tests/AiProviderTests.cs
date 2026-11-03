@@ -63,4 +63,22 @@ public class AiProviderTests
         Assert.True(options.IsOpenCode);
         Assert.Equal(AiProviders.OpenCodeBaseUrl, options.ResolveBaseUrl());
     }
+
+    [Fact]
+    public void 默认超时足够跑完推理模型()
+    {
+        // 实测 deepseek-v4.1-flash 判断 20 位演员要 149 秒；
+        // 默认超时如果回到 60 秒，AI 智能合并会 100% 超时。
+        Assert.True(new AiOptions().TimeoutSeconds >= 300);
+    }
+
+    [Fact]
+    public void Open_Code_的_session_id_是固定值()
+    {
+        // 网关用它做 prompt 缓存；每次换新 GUID 会让同一份演员列表重复推理。
+        Assert.False(string.IsNullOrWhiteSpace(AiProviders.SessionId));
+
+        // 不能是 Guid.ToString("N") 那种 32 位十六进制形态 —— 那正是旧实现每次随机生成的写法。
+        Assert.DoesNotMatch("^[0-9a-f]{32}$", AiProviders.SessionId);
+    }
 }

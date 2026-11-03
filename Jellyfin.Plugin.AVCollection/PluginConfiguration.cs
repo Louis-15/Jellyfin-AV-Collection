@@ -122,8 +122,14 @@ public class AiOptions
     /// <summary>模型名。</summary>
     public string Model { get; set; } = AiProviders.DefaultOpenCodeModel;
 
-    /// <summary>单次请求超时秒数。</summary>
-    public int TimeoutSeconds { get; set; } = 60;
+    /// <summary>
+    /// 单次请求超时秒数。
+    ///
+    /// 默认 300 而不是 60：实测用 <c>deepseek-v4.1-flash</c> 判断 20 位演员，
+    /// Open Code 网关要花 **149 秒**（推理模型会先想一大段）。
+    /// 60 秒必然超时，而且超时请求不产生日志，很难排查。
+    /// </summary>
+    public int TimeoutSeconds { get; set; } = 300;
 
     /// <summary>一次送审多少个演员。列表太长会撑爆上下文，默认 120。</summary>
     public int MaxActorsPerRequest { get; set; } = 120;
@@ -162,4 +168,12 @@ public static class AiProviders
 
     /// <summary>Open Code 网关的默认模型。</summary>
     public const string DefaultOpenCodeModel = "deepseek-v4.1-flash";
+
+    /// <summary>
+    /// 发给 Open Code 的会话 id。
+    ///
+    /// 必须是**固定值**：网关用它做路由与 prompt 缓存，每次换新 id 会丢掉缓存、
+    /// 同一个演员列表重复推理；Thunder Subtitle 用的也是固定值。
+    /// </summary>
+    public const string SessionId = "jellyfin-av-collection";
 }

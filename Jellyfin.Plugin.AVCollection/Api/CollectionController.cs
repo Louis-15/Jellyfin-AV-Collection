@@ -246,6 +246,34 @@ public sealed class CollectionController : ControllerBase
         return Ok(new { ok = true });
     }
 
+    /// <summary>
+    /// 测试 AI 连接是否可用。
+    ///
+    /// 只发一个极短的请求，几十秒内就能给出结论：
+    /// 地址通不通、Key 对不对、模型名存不存在。
+    /// 用户配完 Key 后先点这个，比直接点「AI 智能合并」等两分钟再失败要友好得多。
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>测试结果。</returns>
+    [HttpPost("Ai/Test")]
+    [Authorize(Policy = "RequiresElevation")]
+    public async Task<IActionResult> TestAiAsync(CancellationToken cancellationToken)
+    {
+        var result = await _advisor
+            .TestAsync(Plugin.Current.Ai, cancellationToken)
+            .ConfigureAwait(false);
+
+        return Ok(new
+        {
+            ok = result.Ok,
+            message = result.Message,
+            endpoint = result.Endpoint,
+            model = result.Model,
+            elapsedMs = result.ElapsedMs,
+            reply = result.Reply
+        });
+    }
+
     /// <summary>请求 AI 给出"可能是同一个人"的建议。只返回建议，不写配置。</summary>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>建议列表与可能的错误。</returns>

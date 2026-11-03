@@ -395,6 +395,27 @@
                                 Open Code 可用：deepseek-v4.1-flash、glm-5.3-flash、kimi-k3 等。
                             </div>
                         </div>
+
+                        <div class="inputContainer">
+                            <label class="inputLabel inputLabelUnfocused" for="AiTimeoutSeconds">超时（秒）</label>
+                            <input is="emby-input" id="AiTimeoutSeconds" type="number" min="30" max="900" step="30" />
+                            <div class="fieldDescription">
+                                推理模型判断几十位演员通常要 2-3 分钟，默认 300 秒。
+                                改小会让「AI 智能合并」更容易超时。
+                            </div>
+                        </div>
+
+                        <div class="av-actions">
+                            <button is="emby-button" type="button" id="TestAiButton" class="raised">
+                                <span>测试连接</span>
+                            </button>
+                        </div>
+
+                        <div class="av-status" id="AiTestStatus"></div>
+
+                        <div class="av-hint">
+                            建议先点「测试连接」确认 Key 和地址没问题，再去上面的「艺名合并」点「AI 智能合并」。
+                        </div>
                     </div>
                 </fieldset>
 
@@ -453,6 +474,11 @@
              */
             function setStatus(message, bad) {
                 page.querySelectorAll('.av-status').forEach(function (box) {
+                    // 「测试连接」的结果只显示在 AI 设置里，不要被合并/同步的结果覆盖。
+                    if (box.id === 'AiTestStatus') {
+                        return;
+                    }
+
                     box.textContent = message;
                     box.className = bad ? 'av-status av-status-bad' : 'av-status';
 
@@ -460,6 +486,16 @@
                     // 置空字符串只会退回样式表，等于仍然隐藏。
                     box.style.display = 'block';
                 });
+            }
+
+            /**
+             * 在「AI 设置」里单独显示测试连接的结果。成功/失败用不同边框色，
+             * 并把实际请求地址与耗时一并写出来，方便核对。
+             */
+            function setAiTestStatus(box, ok, lines) {
+                box.className = ok ? 'av-status' : 'av-status av-status-bad';
+                box.textContent = lines.join('\n');
+                box.style.display = 'block';
             }
 
             // GET 必须走 ApiClient.getJSON：ApiClient.ajax 在 GET 上返回的是 Response /
@@ -666,6 +702,7 @@
                     byId('AiBaseUrl').value = ai.BaseUrl || '';
                     byId('AiApiKey').value = ai.ApiKey || '';
                     byId('AiModel').value = ai.Model || 'deepseek-v4.1-flash';
+                    byId('AiTimeoutSeconds').value = ai.TimeoutSeconds || 300;
                     syncAiProviderRows();
 
                     return loadLibraries(cfg.LibraryIds || []);
@@ -700,7 +737,10 @@
                         BaseUrl: byId('AiBaseUrl').value.trim(),
                         ApiKey: byId('AiApiKey').value.trim(),
                         Model: byId('AiModel').value.trim() || 'deepseek-v4.1-flash',
-                        TimeoutSeconds: (cfg.Ai && cfg.Ai.TimeoutSeconds) || 60,
+                        TimeoutSeconds: (function () {
+                            var value = parseInt(byId('AiTimeoutSeconds').value, 10);
+                            return isNaN(value) ? 300 : Math.min(900, Math.max(30, value));
+                        })(),
                         MaxActorsPerRequest: (cfg.Ai && cfg.Ai.MaxActorsPerRequest) || 120
                     };
 
@@ -949,11 +989,49 @@
 
             function suggest() {
                 Dashboard.showLoadingMsg();
-                byId('SuggestResult').textContent = '正在请求模型…';
+
+                // 明确告知可能要等很久：推理模型判断几十位演员实测要 2 分半，
+                // 如果只写"正在请求模型…"用户会以为卡死了。
+                byId('SuggestResult').textContent = 'AI 正在推理，通常需要 1-3 分钟，请不要关闭页面…';
+
                 apiSend('POST', 'AVCollection/Suggest').then(function (result) {
                     renderSuggestions(result || {});
                 }, function (error) {
-                    byId('SuggestResult').textContent = '请求失败：' + describeError(error, '请检查 API Key 与接口地址');
+                    byId('SuggestResult').textContent = '请求失败：' + describeError(error, '请先到「AI 设置」点「测试连接」确认配置正确');
+                }).finally(function () {
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
+            /**
+             * 测试 AI 连接。只发一个极短的请求，几秒到几十秒就能出结果，
+             * 用来在不跑完整合并的前提下确认地址 / Key / 模型名三项都对。
+             */
+            function testAi() {
+                var box = byId('AiTestStatus');
+                Dashboard.showLoadingMsg();
+                setAiTestStatus(box, true, ['正在测试连接…']);
+
+                apiSend('POST', 'AVCollection/Ai/Test').then(function (result) {
+                    var lines = [result.message || (result.ok ? '连接正常' : '连接失败')];
+
+                    if (result.endpoint) {
+                        lines.push('地址：' + result.endpoint);
+                    }
+
+                    if (result.model) {
+                        lines.push('模型：' + result.model);
+                    }
+
+                    if (result.ok && result.reply) {
+                        lines.push('模型回复：' + result.reply);
+                    }
+
+                    setAiTestStatus(box, result.ok === true, lines);
+                }, function (error) {
+                    setAiTestStatus(box, false, [
+                        '测试请求失败：' + describeError(error, '请确认当前账号是管理员')
+                    ]);
                 }).finally(function () {
                     Dashboard.hideLoadingMsg();
                 });
@@ -1015,6 +1093,7 @@
             document.querySelector('#ReloadActors').addEventListener('click', loadActors);
             document.querySelector('#MergeRunNow').addEventListener('click', runNow);
             document.querySelector('#AiProvider').addEventListener('change', syncAiProviderRows);
+            document.querySelector('#TestAiButton').addEventListener('click', testAi);
             document.querySelector('#ActorSearch').addEventListener('input', renderActors);
             document.querySelector('#MergeSelected').addEventListener('click', mergeSelected);
             document.querySelector('#SuggestButton').addEventListener('click', suggest);
