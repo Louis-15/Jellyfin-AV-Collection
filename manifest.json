@@ -9,12 +9,12 @@
     "imageUrl": "https://raw.githubusercontent.com/Louis-15/Jellyfin-AV-Collection/main/logo.png",
     "versions": [
       {
-        "version": "1.0.0.7",
-        "changelog": "Release 1.0.0.7\n\n修合集封面永远设不上：演员列表接口给的 PersonInfo.Id 不是 Person 条目 Id（拿去 GetItemById 永远 null），改为扫描时一次性按名字解析真实 Person 条目；封面日志区分没有演员条目/没有头像/非本地图片三种情况。",
+        "version": "1.0.0.8",
+        "changelog": "Release 1.0.0.8\n\n封面取图补齐旧脚本的能力：演员头像路径是远程 URL（Jellyfin 还没缓存到本地）时走 HttpClient 下载后再上传，本地文件仍直接读盘；封面日志带上字节数便于核对。",
         "targetAbi": "12.2.0.0",
-        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.0.7/av-collection_1.0.0.7.zip",
-        "checksum": "c0635f0f6618c1cb737d026ad9be5a27",
-        "timestamp": "2026-11-03T15:22:11Z"
+        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.0.8/av-collection_1.0.0.8.zip",
+        "checksum": "4f98c230dc5cd51ffcfaaa5011a16823",
+        "timestamp": "2026-11-03T15:32:16Z"
       }
     ]
   }
