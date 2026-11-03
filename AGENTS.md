@@ -309,6 +309,9 @@ dotnet test .\tests\Jellyfin.Plugin.AVCollection.Tests\...\csproj -c Release
 | **1.0.1.0** | AI 设置新增「测试连接」；默认超时 60→300 秒；超时改为写日志；session id 改固定值；HTTP 错误码翻译成中文 |
 | **1.0.1.1** | 测试连接的 `max_tokens` 16→64（16 会被 reasoning 吃光，`content` 返回空串） |
 | **1.0.1.2** | 修「升级后仍然超时」：新增 `ConfigVersion` 一次性迁移，把配置文件里的旧 60 秒提到 300 秒 |
+| **1.0.2.0** | **删掉「AI 智能合并」**（判定质量差、数据源拿不到）；AI 改为把演员名翻译成中文名，用中文名命名合集。新增 `AiClient` / `TranslationStore` / `AiNameTranslator`，译名缓存到 `<data>/av-collection/translations.json`，设置页可逐条手改（失焦即保存） |
+| **1.0.2.1** | 设置页按功能重新分区：基本设置 / 目标影视库 / **AI 接口** / **合集命名** / **艺名合并** / **其他** / **手动运行** / 关于；去掉「打开计划任务」；「重新扫描演员 / 预览 / 立即同步」三个按钮集中到「手动运行」 |
+| **1.0.2.2** | 「重新扫描演员」加结果提示（按钮在「手动运行」、名单在「艺名合并」，中间隔一个分区，不给反馈会像按钮坏了） |
 
 ### 仓库推送注意
 
@@ -326,10 +329,17 @@ refusing to allow an OAuth App to create or update workflow ... without `workflo
 **装到服务器**（SSH 免密可用，不需要 Jellyfin API Key）：
 
 ```powershell
-scp -P 2222 .\artifacts\av-collection_<version>.zip root@931002.xyz:/tmp/
+# release.ps1 本地不产出 zip（编译在 CI 里做），装到服务器要从 Release 下载
+curl.exe -sL -o "$env:TEMP\av-collection_<version>.zip" `
+  "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v<version>/av-collection_<version>.zip"
+scp -P 2222 "$env:TEMP\av-collection_<version>.zip" root@931002.xyz:/tmp/
 # 服务器上：解压到 /www/jellyfin/config/plugins/AV Collection_<version>/ 后
 ssh -p 2222 root@931002.xyz "docker restart jellyfin"
 ```
+
+注意：`scp` / `ssh` 的命令串里不要用 PowerShell 的 here-string（`@'...'@`）拼多行脚本，
+CRLF 会带进 bash，`ls "AV Collection_1.0.2.1"` 会变成 `'AV Collection_1.0.2.1'$'\r'` 报找不到。
+要么单行传，要么先 `-replace "\`r", ""`。
 
 **验证**：
 

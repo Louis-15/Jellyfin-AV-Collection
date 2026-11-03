@@ -853,13 +853,21 @@
                 });
             }
 
-            function loadActors() {
+            function loadActors(notify) {
                 Dashboard.showLoadingMsg();
                 return apiGet('AVCollection/Actors').then(function (list) {
                     actors = list || [];
                     renderActors();
+                    // 「重新扫描演员」按钮在「手动运行」区，演员列表却在「艺名合并」区，
+                    // 中间隔着一整个分区。不写一行结果，数据没变化时用户会以为按钮坏了。
+                    if (notify) {
+                        setStatus('已重新扫描演员：共 ' + actors.length + ' 位，名单在上方「艺名合并」里。');
+                    }
                 }, function () {
                     byId('ActorList').textContent = '读取演员列表失败（需要管理员权限）。';
+                    if (notify) {
+                        setStatus('读取演员列表失败（需要管理员权限）。', true);
+                    }
                 }).finally(function () {
                     Dashboard.hideLoadingMsg();
                 });
@@ -1167,7 +1175,9 @@
                 loadLibraries(selectedLibraryIds());
             });
 
-            document.querySelector('#ReloadActors').addEventListener('click', loadActors);
+            document.querySelector('#ReloadActors').addEventListener('click', function () {
+                loadActors(true);
+            });
             document.querySelector('#MergeRunNow').addEventListener('click', runNow);
             document.querySelector('#AiProvider').addEventListener('change', syncAiProviderRows);
             document.querySelector('#TestAiButton').addEventListener('click', testAi);
