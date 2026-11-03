@@ -9,12 +9,12 @@
     "imageUrl": "https://raw.githubusercontent.com/Louis-15/Jellyfin-AV-Collection/main/logo.png",
     "versions": [
       {
-        "version": "1.0.1.2",
-        "changelog": "Release 1.0.1.2\n\n修升级后仍超时：Jellyfin 已存在的 XML 配置会覆盖代码里的新默认值，旧配置里的 60 秒超时升级后依然是 60。新增 ConfigVersion 一次性迁移，把 <120 秒的旧值提到 300 秒（用户已手动调大的不覆盖）。",
+        "version": "1.0.2.0",
+        "changelog": "Release 1.0.2.0\n\n移除 AI 艺名合并（模型纯靠记忆猜是否同一人，实测 3 条建议错 2 条、还把 3 个人并成一组）。AI 改为「日本演员名 → 中文名」翻译，仅用于合集命名，演员条目本身不变。新增译名缓存（避免重复调用、避免合集名来回跳）与可逐条编辑的译名表。",
         "targetAbi": "12.2.0.0",
-        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.1.2/av-collection_1.0.1.2.zip",
-        "checksum": "e421d33fe567c0d7ce7c32e4c935dbdd",
-        "timestamp": "2026-11-03T16:26:45Z"
+        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.2.0/av-collection_1.0.2.0.zip",
+        "checksum": "43e29959d9b06efd7a1e3d2dd7051268",
+        "timestamp": "2026-11-03T17:07:56Z"
       }
     ]
   }
