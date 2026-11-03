@@ -9,12 +9,12 @@
     "imageUrl": "https://raw.githubusercontent.com/Louis-15/Jellyfin-AV-Collection/main/logo.png",
     "versions": [
       {
-        "version": "1.0.0.1",
-        "changelog": "Release 1.0.0.1\n\n修复插件启动失败：PluginLog 注入非泛型 ILogger 导致 ActorCollectionSyncTask 无法构造（DI 解析失败）。",
+        "version": "1.0.0.2",
+        "changelog": "Release 1.0.0.2\n\n安全修复：未配置目标影视库时不再回退到所有电影库（实测会给「电影」库的 431 位演员各建一个合集），改为直接跳过并在设置页提示必须选库。",
         "targetAbi": "12.2.0.0",
-        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.0.1/av-collection_1.0.0.1.zip",
-        "checksum": "1b90f638a6d812d063b27365fd155940",
-        "timestamp": "2026-11-03T14:08:50Z"
+        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.0.2/av-collection_1.0.0.2.zip",
+        "checksum": "60ae1f4ccd6472f6ab5ef3c801ea8c17",
+        "timestamp": "2026-11-03T14:13:11Z"
       }
     ]
   }
