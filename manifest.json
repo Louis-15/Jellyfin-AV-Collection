@@ -9,12 +9,12 @@
     "imageUrl": "https://raw.githubusercontent.com/Louis-15/Jellyfin-AV-Collection/main/logo.png",
     "versions": [
       {
-        "version": "1.0.0.0",
-        "changelog": "Release 1.0.0.0\n\n首发：按演员自动建立并维护 Jellyfin 合集；自动用演员头像做合集封面；支持把同一演员的多个艺名合并到一个合集（合集名默认取最活跃的两个艺名）；艺名合并可在设置页手动配置，也可由 OpenAI 兼容模型给出建议后采纳。",
+        "version": "1.0.0.1",
+        "changelog": "Release 1.0.0.1\n\n修复插件启动失败：PluginLog 注入非泛型 ILogger 导致 ActorCollectionSyncTask 无法构造（DI 解析失败）。",
         "targetAbi": "12.2.0.0",
-        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.0.0/av-collection_1.0.0.0.zip",
-        "checksum": "6e9bf23d66780eb2e05cb89e7d912440",
-        "timestamp": "2026-11-03T14:04:19Z"
+        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.0.0.1/av-collection_1.0.0.1.zip",
+        "checksum": "1b90f638a6d812d063b27365fd155940",
+        "timestamp": "2026-11-03T14:08:50Z"
       }
     ]
   }
