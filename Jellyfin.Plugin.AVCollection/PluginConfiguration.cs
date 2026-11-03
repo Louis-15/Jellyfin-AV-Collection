@@ -102,26 +102,64 @@ public class AiOptions
     public bool Enabled { get; set; }
 
     /// <summary>
-    /// 接口根地址（不含 /chat/completions）。
-    /// 默认是 Open Code 的内置推理网关，和 Thunder Subtitle 保持一致。
+    /// AI 供应商。<see cref="AiProviders.OpenCode"/>（内置）或 <see cref="AiProviders.Custom"/>。
+    ///
+    /// 用字符串而不是 enum：Jellyfin 的插件配置走 XML 序列化，
+    /// 字符串在升级/回退时都不会因为枚举值缺失而炸掉。
     /// </summary>
-    public string BaseUrl { get; set; } = "https://opencode.ai/inference/go/openai/v1";
+    public string Provider { get; set; } = AiProviders.OpenCode;
+
+    /// <summary>
+    /// 自定义接口的根地址（不含 /chat/completions）。
+    /// 只有 <see cref="Provider"/> 为 <see cref="AiProviders.Custom"/> 时才会用到；
+    /// 内置供应商的地址由代码固定，用户不用也不能改。
+    /// </summary>
+    public string BaseUrl { get; set; } = string.Empty;
 
     /// <summary>API Key。只保存在服务器插件配置里，绝不写进日志。</summary>
     public string ApiKey { get; set; } = string.Empty;
 
     /// <summary>模型名。</summary>
-    public string Model { get; set; } = "deepseek-v4.1-flash";
-
-    /// <summary>
-    /// 是否附带 x-opencode-session 请求头。Open Code 网关从 2025-09-06 起强制要求，
-    /// 换成自己的接口（OpenAI / DeepSeek 官方）时应当关掉。
-    /// </summary>
-    public bool UseSessionHeader { get; set; } = true;
+    public string Model { get; set; } = AiProviders.DefaultOpenCodeModel;
 
     /// <summary>单次请求超时秒数。</summary>
     public int TimeoutSeconds { get; set; } = 60;
 
     /// <summary>一次送审多少个演员。列表太长会撑爆上下文，默认 120。</summary>
     public int MaxActorsPerRequest { get; set; } = 120;
+
+    /// <summary>是否选中了内置的 Open Code 供应商。</summary>
+    [System.Xml.Serialization.XmlIgnore]
+    public bool IsOpenCode => string.Equals(Provider, AiProviders.OpenCode, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 实际要用的接口根地址。
+    ///
+    /// 内置供应商的地址写死在代码里：用户选了 Open Code 却把地址改坏，
+    /// 报错会非常难查（现象是"连接不上"，而不是"地址填错了"）。
+    /// </summary>
+    public string ResolveBaseUrl()
+    {
+        return IsOpenCode
+            ? AiProviders.OpenCodeBaseUrl
+            : (BaseUrl ?? string.Empty).Trim();
+    }
+}
+
+/// <summary>
+/// 内置 AI 供应商的常量。
+/// </summary>
+public static class AiProviders
+{
+    /// <summary>内置的 Open Code 推理网关。</summary>
+    public const string OpenCode = "OpenCode";
+
+    /// <summary>用户自填地址的 OpenAI 兼容接口。</summary>
+    public const string Custom = "Custom";
+
+    /// <summary>Open Code 网关的根地址。</summary>
+    public const string OpenCodeBaseUrl = "https://opencode.ai/inference/go/openai/v1";
+
+    /// <summary>Open Code 网关的默认模型。</summary>
+    public const string DefaultOpenCodeModel = "deepseek-v4.1-flash";
 }

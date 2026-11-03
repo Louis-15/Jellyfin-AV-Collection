@@ -1,7 +1,7 @@
 # AV Collection · 项目交接文档
 
 > 这份文档写给**接手继续开发的人或 AI**。读完这一篇就能直接改代码，不需要翻聊天记录。
-> 最后更新：2026-11-03，当前版本 **1.0.0.8**。
+> 最后更新：2026-11-03，当前版本 **1.0.0.9**。
 
 ---
 
@@ -221,23 +221,45 @@ Python 脚本仍在服务器上按 timer 运行，**插件还没有接管**。
 
 ---
 
-## 8. 测试
+## 8. AI 接入
+
+`AiOptions`（`PluginConfiguration.cs`）只有两个供应商：
+
+| 供应商 | 地址 | 请求头 |
+|---|---|---|
+| `OpenCode`（默认，内置） | 代码固定 `https://opencode.ai/inference/go/openai/v1` | 自动附带 `x-opencode-session` |
+| `Custom` | 用户填（`BaseUrl`，不含 `/chat/completions`） | 不加 |
+
+**地址和请求头都由代码决定，不做成用户可改的开关**（见 `AiOptions.ResolveBaseUrl()`）。
+理由：用户选了 Open Code 却把地址改坏，报错只会是"连接失败"，极难排查。
+
+`AiAliasAdvisor` 只产出**建议**，永远不自动写配置 —— 演员同名判定出错会把不相干的作品
+并进一个合集，还带着别人的头像，必须由用户在设置页点「采纳」。
+
+设置页的「AI 智能合并」按钮在「艺名合并」组里，`POST /AVCollection/Suggest` 只返回建议列表。
+
+---
+
+## 9. 测试
 
 ```powershell
 dotnet test .\tests\Jellyfin.Plugin.AVCollection.Tests\...\csproj -c Release
 ```
 
-当前 15 个用例，全部集中在 `CollectionPlanner`（纯逻辑，无 Jellyfin 依赖）：
-单个演员命名、合并组取前 N 个艺名、作品数相同时排序稳定、手动名优先、
-无作品演员不建合集、合并组里失效艺名不参与命名、封面艺名回落、
-`ParentLibraryId` 取影片最多的库、失效组合识别、退化组合不算合并组。
+当前 20 个用例，集中在两块纯逻辑（无 Jellyfin 依赖）：
+
+- `CollectionPlanner`：单个演员命名、合并组取前 N 个艺名、作品数相同时排序稳定、
+  手动名优先、无作品演员不建合集、合并组里失效艺名不参与命名、封面艺名回落、
+  `ParentLibraryId` 取影片最多的库、失效组合识别、退化组合不算合并组。
+- `AiOptions`：内置 Open Code 必须用代码里固定的地址（忽略配置里残留的旧值）、
+  自定义供应商用用户填的地址并 trim、空地址返回空串、供应商名大小写不敏感。
 
 **改命名 / 分组 / 封面规则时先加断言再改实现**：这一层出错线上表现是
 "合集名来回跳"或"两个合集抢同一批影片"，排查成本极高。
 
 ---
 
-## 9. 发版与部署
+## 10. 发版与部署
 
 ```
 改代码 → dotnet test → .\release.ps1 -Version x.y.z.w -Changelog "..."
@@ -258,6 +280,7 @@ dotnet test .\tests\Jellyfin.Plugin.AVCollection.Tests\...\csproj -c Release
 | **1.0.0.6** | 「艺名合并」区域新增「立即同步」按钮（合并只改配置，合集要同步才变）；顺手修状态框永远不显示（`style.display = ''` 会退回 CSS 的 `display:none`，必须显式给 `block`） |
 | **1.0.0.7** | **修合集封面永远设不上**：`IPeopleRepository.GetPeopleByItems` 返回的 `PersonInfo.Id` 不是 Person 条目 Id，`GetItemById` 永远 null → 全体演员被判"没头像"。改为扫描时按名字解析真实 Person 条目 |
 | **1.0.0.8** | 封面取图补上"远程头像"分支：`ImageInfo.Path` 是 http(s) 时走 `HttpClient` 下载（等价于旧脚本一律走 REST 取图的做法），本地文件仍直接读盘 |
+| **1.0.0.9** | AI 设置独立成组并内置供应商（Open Code / 自定义）；Open Code 的地址与 `x-opencode-session` 头由代码固定，去掉"附带请求头"开关；「艺名合并」按钮行重排为 重新扫描 → 合并 → AI 智能合并 → 预览 → 立即同步 |
 
 ### 仓库推送注意
 
@@ -298,7 +321,7 @@ curl.exe -sk "https://931002.xyz:8443/web/ConfigurationPage?name=avcollection"
 
 ---
 
-## 10. 待办 / 后续可做
+## 11. 待办 / 后续可做
 
 1. **迁移 Python 脚本**（等用户拍板，见 §7）。合并功能上线前必须先停脚本。
 2. 演员列表缓存：现在设置页每次打开都重新扫库，库很大时会慢。

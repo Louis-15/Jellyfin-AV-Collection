@@ -310,17 +310,23 @@
                         </div>
 
                         <div class="av-actions">
-                            <button is="emby-button" type="button" id="MergeSelected" class="raised">
-                                <span>合并选中的艺名</span>
-                            </button>
+                            <!--
+                                按钮顺序按用户指定：重新扫描 → 合并 → AI 智能合并 → 预览 → 立即同步。
+                                「立即同步」是从最多作品数的角度看的最后一步：合并只改配置，
+                                合集要同步才会真正变化，所以它必须和合并按钮挨在一起。
+                            -->
                             <button is="emby-button" type="button" id="ReloadActors" class="raised small">
                                 <span>重新扫描演员</span>
                             </button>
-                            <!--
-                                和「手动运行」里的「立即同步」是同一个动作。
-                                放在这里是因为"改完合并组以为已经生效"是必然会发生的事：
-                                合并只改配置，合集要同步才会变。
-                            -->
+                            <button is="emby-button" type="button" id="MergeSelected" class="raised">
+                                <span>合并选中的艺名</span>
+                            </button>
+                            <button is="emby-button" type="button" id="SuggestButton" class="raised">
+                                <span>AI 智能合并</span>
+                            </button>
+                            <button is="emby-button" type="button" id="PreviewButton" class="raised small">
+                                <span>预览（不写库）</span>
+                            </button>
                             <button is="emby-button" type="button" id="MergeRunNow" class="raised button-submit">
                                 <span>立即同步</span>
                             </button>
@@ -329,17 +335,19 @@
                         <!-- 就地显示运行结果，省得用户滚到最下面才看到成功/失败。 -->
                         <div class="av-status" id="MergeRunStatus"></div>
 
+                        <!-- AI 建议结果也放在这一组，采纳后直接落到下面的合并组列表。 -->
+                        <div id="SuggestResult"></div>
+
                         <div class="av-hint">已配置的合并组：</div>
                         <div id="GroupList">正在加载…</div>
                     </div>
                 </fieldset>
 
                 <fieldset class="av-group">
-                    <legend class="av-group-title">AI 建议（可选）</legend>
+                    <legend class="av-group-title">AI 设置（可选）</legend>
                     <div class="av-group-body">
                         <p class="fieldDescription">
-                            让 OpenAI 兼容模型看一眼演员列表，猜哪些艺名是同一个人。
-                            模型只给建议，必须你点「采纳」才会生效。
+                            「AI 智能合并」用的模型配置。模型只给建议，必须你点「采纳」才会生效。
                         </p>
 
                         <div class="checkboxContainer checkboxContainer-withDescription">
@@ -347,13 +355,30 @@
                                 <input id="AiEnabled" type="checkbox" is="emby-checkbox" />
                                 <span>启用 AI 建议</span>
                             </label>
+                            <div class="fieldDescription checkboxFieldDescription">
+                                关闭后「AI 智能合并」按钮会直接提示未启用。
+                            </div>
                         </div>
 
-                        <div class="inputContainer">
+                        <div class="selectContainer">
+                            <label class="selectLabel" for="AiProvider">供应商</label>
+                            <select is="emby-select" id="AiProvider" class="emby-select-withcolor">
+                                <option value="OpenCode">Open Code（内置）</option>
+                                <option value="Custom">自定义</option>
+                            </select>
+                            <div class="fieldDescription" id="AiProviderHint">
+                                Open Code 已内置 <code>https://opencode.ai/inference/go/openai/v1</code>，
+                                并自动附带它要求的 <code>x-opencode-session</code> 请求头。
+                            </div>
+                        </div>
+
+                        <!-- 只有「自定义」才需要填地址；内置供应商的地址写死在代码里。
+                             默认隐藏，避免 Open Code 模式下先闪一下再消失。 -->
+                        <div class="inputContainer" id="AiBaseUrlRow" style="display:none">
                             <label class="inputLabel inputLabelUnfocused" for="AiBaseUrl">接口地址</label>
                             <input is="emby-input" id="AiBaseUrl" type="text" />
                             <div class="fieldDescription">
-                                不含 /chat/completions。默认是 Open Code 网关，也可以填自己的 OpenAI 兼容地址。
+                                不含 /chat/completions，例如 <code>https://api.deepseek.com/v1</code>。
                             </div>
                         </div>
 
@@ -366,25 +391,10 @@
                         <div class="inputContainer">
                             <label class="inputLabel inputLabelUnfocused" for="AiModel">模型</label>
                             <input is="emby-input" id="AiModel" type="text" />
-                        </div>
-
-                        <div class="checkboxContainer checkboxContainer-withDescription">
-                            <label class="emby-checkbox-label">
-                                <input id="AiUseSessionHeader" type="checkbox" is="emby-checkbox" />
-                                <span>附带 x-opencode-session 请求头</span>
-                            </label>
-                            <div class="fieldDescription checkboxFieldDescription">
-                                Open Code 网关强制要求；换成 OpenAI / DeepSeek 官方接口时请取消勾选。
+                            <div class="fieldDescription">
+                                Open Code 可用：deepseek-v4.1-flash、glm-5.3-flash、kimi-k3 等。
                             </div>
                         </div>
-
-                        <div class="av-actions">
-                            <button is="emby-button" type="button" id="SuggestButton" class="raised">
-                                <span>让 AI 找同一个人</span>
-                            </button>
-                        </div>
-
-                        <div id="SuggestResult"></div>
                     </div>
                 </fieldset>
 
@@ -392,17 +402,14 @@
                     <legend class="av-group-title">手动运行</legend>
                     <div class="av-group-body">
                         <div class="av-actions">
-                            <button is="emby-button" type="button" id="PreviewButton" class="raised small">
-                                <span>预览（不写库）</span>
-                            </button>
-                            <button is="emby-button" type="button" id="RunButton" class="raised">
-                                <span>立即同步</span>
-                            </button>
                             <button is="emby-button" type="button" id="OpenTasks" class="raised small">
                                 <span>打开计划任务</span>
                             </button>
                         </div>
-                        <div id="RunStatus" class="av-status"></div>
+                        <div class="av-hint">
+                            同步相关的按钮都在上面的「艺名合并」里；这里只留计划任务入口，
+                            用来查看定时任务的状态和历史。
+                        </div>
                     </div>
                 </fieldset>
 
@@ -629,6 +636,19 @@
 
             // ---------- 配置 ----------
 
+            /**
+             * 供应商是内置的 Open Code 时隐藏「接口地址」输入框：
+             * 那个地址写死在代码里，显示出来只会诱导用户去改，改坏了报错还很难查。
+             */
+            function syncAiProviderRows() {
+                var custom = byId('AiProvider').value === 'Custom';
+                byId('AiBaseUrlRow').style.display = custom ? 'block' : 'none';
+                byId('AiProviderHint').innerHTML = custom
+                    ? '填你自己的 OpenAI 兼容接口地址，请求不会带 x-opencode-session 头。'
+                    : 'Open Code 已内置 <code>https://opencode.ai/inference/go/openai/v1</code>，'
+                      + '并自动附带它要求的 <code>x-opencode-session</code> 请求头。';
+            }
+
             function loadConfig() {
                 return ApiClient.getPluginConfiguration(PluginId).then(function (cfg) {
                     byId('Enabled').checked = cfg.Enabled !== false;
@@ -642,10 +662,11 @@
 
                     var ai = cfg.Ai || {};
                     byId('AiEnabled').checked = ai.Enabled === true;
-                    byId('AiBaseUrl').value = ai.BaseUrl || 'https://opencode.ai/inference/go/openai/v1';
+                    byId('AiProvider').value = ai.Provider || 'OpenCode';
+                    byId('AiBaseUrl').value = ai.BaseUrl || '';
                     byId('AiApiKey').value = ai.ApiKey || '';
                     byId('AiModel').value = ai.Model || 'deepseek-v4.1-flash';
-                    byId('AiUseSessionHeader').checked = ai.UseSessionHeader !== false;
+                    syncAiProviderRows();
 
                     return loadLibraries(cfg.LibraryIds || []);
                 });
@@ -675,10 +696,10 @@
                     // 否则保存设置会把用户配好的组清空。
                     cfg.Ai = {
                         Enabled: byId('AiEnabled').checked,
-                        BaseUrl: byId('AiBaseUrl').value.trim() || 'https://opencode.ai/inference/go/openai/v1',
+                        Provider: byId('AiProvider').value || 'OpenCode',
+                        BaseUrl: byId('AiBaseUrl').value.trim(),
                         ApiKey: byId('AiApiKey').value.trim(),
                         Model: byId('AiModel').value.trim() || 'deepseek-v4.1-flash',
-                        UseSessionHeader: byId('AiUseSessionHeader').checked,
                         TimeoutSeconds: (cfg.Ai && cfg.Ai.TimeoutSeconds) || 60,
                         MaxActorsPerRequest: (cfg.Ai && cfg.Ai.MaxActorsPerRequest) || 120
                     };
@@ -993,11 +1014,11 @@
 
             document.querySelector('#ReloadActors').addEventListener('click', loadActors);
             document.querySelector('#MergeRunNow').addEventListener('click', runNow);
+            document.querySelector('#AiProvider').addEventListener('change', syncAiProviderRows);
             document.querySelector('#ActorSearch').addEventListener('input', renderActors);
             document.querySelector('#MergeSelected').addEventListener('click', mergeSelected);
             document.querySelector('#SuggestButton').addEventListener('click', suggest);
             document.querySelector('#PreviewButton').addEventListener('click', preview);
-            document.querySelector('#RunButton').addEventListener('click', runNow);
             document.querySelector('#OpenTasks').addEventListener('click', function () {
                 Dashboard.navigate('scheduledtasks.html');
             });

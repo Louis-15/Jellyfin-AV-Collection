@@ -59,6 +59,11 @@ public sealed class AiAliasAdvisor
             return ([], "未填写 API Key");
         }
 
+        if (!options.IsOpenCode && string.IsNullOrWhiteSpace(options.BaseUrl))
+        {
+            return ([], "供应商选的是「自定义」，但没填接口地址");
+        }
+
         var pool = actors
             .Where(a => a.ItemIds.Count > 0)
             .OrderByDescending(a => a.ItemIds.Count)
@@ -87,7 +92,7 @@ public sealed class AiAliasAdvisor
             using var client = _httpClientFactory.CreateClient(nameof(AiAliasAdvisor));
             client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 10, 300));
 
-            var url = options.BaseUrl.TrimEnd('/') + "/chat/completions";
+            var url = options.ResolveBaseUrl().TrimEnd('/') + "/chat/completions";
             using var request = new HttpRequestMessage(HttpMethod.Post, url)
             {
                 Content = new StringContent(payload.ToJsonString(JsonOptions), Encoding.UTF8, "application/json")
@@ -95,9 +100,9 @@ public sealed class AiAliasAdvisor
 
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.ApiKey.Trim());
 
-            // Open Code 网关从 2025-09-06 起强制要求这个头；用自己的接口时要关掉，
-            // 否则部分服务端会因为未知头报 400。
-            if (options.UseSessionHeader)
+            // Open Code 网关从 2025-09-06 起强制要求这个头；自带接口不能乱加，
+            // 部分服务端会因为未知请求头直接 400。所以按供应商决定，不做成开关。
+            if (options.IsOpenCode)
             {
                 request.Headers.TryAddWithoutValidation("x-opencode-session", Guid.NewGuid().ToString("N"));
             }
