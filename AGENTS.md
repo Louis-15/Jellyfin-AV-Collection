@@ -31,7 +31,8 @@ dotnet test .\tests\Jellyfin.Plugin.AVCollection.Tests\Jellyfin.Plugin.AVCollect
 # 打包（artifacts/av-collection_<version>.zip）
 .\build.ps1
 
-# 发版（自动改版本号 + commit + 打 tag + push，CI 编译/打包/写 manifest/发 Release）
+# 发版（⚠️ 仅在用户明确说"发版 / 发布 / 出新版本"后才可执行；AI 不得自行调用）
+# 自动改版本号 + commit + 打 tag + push，CI 编译/打包/写 manifest/发 Release
 .\release.ps1 -Version 1.0.1.0 -Changelog "改了什么"
 ```
 
@@ -298,6 +299,10 @@ dotnet test .\tests\Jellyfin.Plugin.AVCollection.Tests\...\csproj -c Release
 ---
 
 ## 10. 发版与部署
+
+> 🚫 **前置条件**：这条闭环只在**用户明确下令发版后**才启动。
+> 代码改完 + 测试通过就停下汇报（改动 / 建议版本号 / changelog 草稿），
+> **不得自行执行 `release.ps1`、不得打 tag、不得 push、不得改版本号**。
 
 ```
 改代码 → dotnet test → .\release.ps1 -Version x.y.z.w -Changelog "..."
