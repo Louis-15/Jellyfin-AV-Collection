@@ -13,6 +13,8 @@
 
 ## 安装
 
+### 方式 A：通过插件仓库（推荐，可自动更新）
+
 在 Jellyfin 里添加插件仓库：
 
 ```
@@ -20,9 +22,22 @@ https://raw.githubusercontent.com/Louis-15/Jellyfin-AV-Collection/main/manifest.
 ```
 
 然后：控制台 → 插件 → 目录 → 找到 **AV Collection** → 安装 → 重启 Jellyfin。
+之后插件页出现新版本提示时，点「更新」即可升级，不需要再手工传文件。
 
-也可以手动安装：下载 Release 里的 `av-collection_<version>.zip`，解压到
-`/config/plugins/AV Collection_<version>/`，重启。
+### 方式 B：手动安装（服务器访问不了 GitHub 时）
+
+先备份插件目录，重启 Jellyfin 会造成几十秒不可用。
+
+下载 Release 里的 `av-collection_<version>.zip`，解压到 Jellyfin 配置目录下的
+`plugins/AV Collection_<version>/`：
+
+- **Docker**：这里的 `/config/plugins` 是**容器内**路径，宿主机对应你映射给容器的配置目录，
+  例如 `./config/plugins/AV Collection_<version>/`；
+- **NAS（群晖 / 威联通 / UGREEN 等）**：不需要 SSH，在 NAS 的文件管理器里把 zip 解压到映射出来的
+  `config/plugins/` 下，再在容器管理界面重启 Jellyfin 即可。
+
+解压后目录里应**直接**看到 `Jellyfin.Plugin.AVCollection.dll`、`meta.json`、`logo.png`，
+不要多套一层文件夹，否则插件不会被加载。
 
 ## 使用
 

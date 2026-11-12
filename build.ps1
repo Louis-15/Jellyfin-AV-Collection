@@ -69,6 +69,7 @@ Write-Host "插件目录: $packageDir"
 Write-Host "插件压缩包: $zipPath"
 Write-Host "MD5: $hash"
 Write-Host ''
-Write-Host '安装到服务器：'
-Write-Host "  scp -P 2222 `"$zipPath`" root@931002.xyz:/tmp/"
-Write-Host "  ssh -p 2222 root@931002.xyz `"mkdir -p /www/jellyfin/config/plugins/AV Collection_$version && unzip -o /tmp/$(Split-Path $zipPath -Leaf) -d '/www/jellyfin/config/plugins/AV Collection_$version' && docker restart jellyfin`""
+Write-Host '安装到 Jellyfin（NAS / Docker 同样适用）：'
+Write-Host '  方式 1：Jellyfin 控制台 →「插件 → 仓库」添加 manifest 地址，再在「目录」里安装（可自动更新）'
+Write-Host "  方式 2：把 $(Split-Path $zipPath -Leaf) 解压到 Jellyfin 配置目录下的 plugins/AV Collection_$version/，再重启 Jellyfin"
+Write-Host '  Docker / NAS：目标路径是容器内的 /config/plugins，宿主机对应你映射给容器的配置目录'
