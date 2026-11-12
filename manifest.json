@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/Louis-15/Jellyfin-AV-Collection/main/logo.png",
     "versions": [
       {
+        "version": "1.1.0.1",
+        "changelog": "Release 1.1.0.1\n\n维护性更新（无功能变更）：补充 NAS / Docker 安装说明",
+        "targetAbi": "12.2.0.0",
+        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.1.0.1/av-collection_1.1.0.1.zip",
+        "checksum": "9ad56f67b9d64cf02d92aeddf708c905",
+        "timestamp": "2026-11-12T14:51:45Z"
+      },
+      {
         "version": "1.1.0.0",
         "changelog": "Release 1.1.0.0\n\n新增实时入库同步：新片刮削完成后只更新它涉及的演员合集，不扫全库（设置页「其他」区可关）",
         "targetAbi": "12.2.0.0",
