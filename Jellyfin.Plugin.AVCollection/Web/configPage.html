@@ -520,6 +520,11 @@
             var actors = [];
             var selectedActors = {};
 
+            // 演员原名 → 中文译名。只用于「艺名合并」列表的显示：
+            // 那一块要显示成「中文艺名（日文原名）」，而合集命名、合并组等其他区域
+            // 仍然按后端返回的原名显示，不能被这张表影响。
+            var actorNameTranslations = {};
+
             function byId(id) {
                 return page.querySelector('#' + id);
             }
@@ -804,6 +809,21 @@
 
             // ---------- 演员列表 ----------
 
+            /**
+             * 「艺名合并」列表里的一行显示名：中文艺名（日文原名）。
+             *
+             * 只在这个列表使用。没有译名、或译名与原名相同时直接显示原名，
+             * 避免出现「水野朝陽（水野朝陽）」这种重复括号。
+             */
+            function actorDisplayName(original) {
+                var translated = actorNameTranslations[original];
+                if (!translated || translated === original) {
+                    return original;
+                }
+
+                return translated + '（' + original + '）';
+            }
+
             function renderActors() {
                 var box = byId('ActorList');
                 var keyword = (byId('ActorSearch').value || '').trim().toLowerCase();
@@ -813,7 +833,10 @@
                     if (!keyword) {
                         return true;
                     }
-                    return actor.Name.toLowerCase().indexOf(keyword) >= 0;
+
+                    // 按显示名匹配，中文和日文都能搜到：
+                    // 用户看到的是「中文（日文）」，只按 actor.Name 过滤会让人以为中文搜不到。
+                    return actorDisplayName(actor.Name).toLowerCase().indexOf(keyword) >= 0;
                 });
 
                 if (!visible.length) {
@@ -832,7 +855,7 @@
                     }
 
                     var row = createCheckRow(
-                        actor.Name,
+                        actorDisplayName(actor.Name),
                         selectedActors[actor.Name] === true,
                         meta,
                         function (checked) {
@@ -1053,6 +1076,15 @@
                             row.translated = value;
                             row.hasTranslation = !!value;
                             label.classList.remove('av-trans-pending');
+
+                            // 译名表改完，要同步「艺名合并」列表里的显示名。
+                            // 那张表只读这张映射，不刷新的话列表还挂着旧的中文名。
+                            if (value) {
+                                actorNameTranslations[row.original] = value;
+                            } else {
+                                delete actorNameTranslations[row.original];
+                            }
+                            renderActors();
                         }, function () {
                             setStatusIn('NamingStatus', '保存译名失败：' + row.original, true);
                         });
@@ -1070,7 +1102,30 @@
 
             function loadTranslations() {
                 return apiGet('AVCollection/Translations').then(function (payload) {
-                    renderTranslations(payload || {});
+                    payload = payload || {};
+
+                    // 先重建「原名 → 译名」映射，再渲染译名表。
+                    // 只收真正有意义的译名：没有翻译的行（服务端会回填原名）和
+                    // 译名与原名完全相同的行都跳过，界面上就不该出现重复括号。
+                    var map = {};
+                    (payload.rows || []).forEach(function (row) {
+                        if (!row || !row.hasTranslation) {
+                            return;
+                        }
+
+                        var translated = (row.translated || '').trim();
+                        if (translated && translated !== row.original) {
+                            map[row.original] = translated;
+                        }
+                    });
+                    actorNameTranslations = map;
+
+                    renderTranslations(payload);
+
+                    // 译名接口和演员接口是两个独立请求，且译名可能晚到。
+                    // 这里必须重画「艺名合并」列表，否则它会一直停在日文原名。
+                    // 勾选状态按原名存在 selectedActors 里，重画不会丢。
+                    renderActors();
                 }, function () {
                     byId('TranslationList').textContent = '读取译名表失败（需要管理员权限）。';
                 });
