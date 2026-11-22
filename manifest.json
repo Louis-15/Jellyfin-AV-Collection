@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/Louis-15/Jellyfin-AV-Collection/main/logo.png",
     "versions": [
       {
+        "version": "1.2.0.1",
+        "changelog": "Release 1.2.0.1\n\n修复切换供应商后「测试连接」仍测上一次保存配置的问题——改为使用当前表单值测试、不保存；结果补充模型名；与 Thunder Subtitle 统一测试协议与显示格式。",
+        "targetAbi": "12.2.0.0",
+        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.2.0.1/av-collection_1.2.0.1.zip",
+        "checksum": "106736fd39b37a65b7c478a701b7ced5",
+        "timestamp": "2026-11-22T11:28:46Z"
+      },
+      {
         "version": "1.2.0.0",
         "changelog": "Release 1.2.0.0\n\n新增内置 AI 供应商 Command Code（https://api.commandcode.ai/provider/v1，默认模型 deepseek/deepseek-v4.1-flash）；AI 凭据按供应商分槽位保存并自动迁移旧配置，切换供应商无需重填；自定义供应商未填 Key 时不再发送空鉴权头。",
         "targetAbi": "12.2.0.0",
