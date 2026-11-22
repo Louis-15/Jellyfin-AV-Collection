@@ -9,6 +9,14 @@
     "imageUrl": "https://raw.githubusercontent.com/Louis-15/Jellyfin-AV-Collection/main/logo.png",
     "versions": [
       {
+        "version": "1.2.0.0",
+        "changelog": "Release 1.2.0.0\n\n新增内置 AI 供应商 Command Code（https://api.commandcode.ai/provider/v1，默认模型 deepseek/deepseek-v4.1-flash）；AI 凭据按供应商分槽位保存并自动迁移旧配置，切换供应商无需重填；自定义供应商未填 Key 时不再发送空鉴权头。",
+        "targetAbi": "12.2.0.0",
+        "sourceUrl": "https://github.com/Louis-15/Jellyfin-AV-Collection/releases/download/v1.2.0.0/av-collection_1.2.0.0.zip",
+        "checksum": "1c96c81951dbe38a9b18d6e80cb00728",
+        "timestamp": "2026-11-22T11:03:27Z"
+      },
+      {
         "version": "1.1.0.2",
         "changelog": "Release 1.1.0.2\n\n「艺名合并」名单改为「中文艺名（日文原名）」显示（如「水野朝阳（水野朝陽）」），搜索同时支持中文与日文，改译名后名单即时刷新；插件封面重做为 16:9 演员合集主题（原 256×256 方图比例不对）。",
         "targetAbi": "12.2.0.0",
