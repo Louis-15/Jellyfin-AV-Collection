@@ -45,7 +45,8 @@ https://raw.githubusercontent.com/Louis-15/Jellyfin-AV-Collection/main/manifest.
 
 - **基本设置**：插件总开关。
 - **目标影视库**：**必须勾选**。插件只会动勾选的库；没勾任何库时不会创建或修改任何合集。
-- **AI 接口**：启用 AI、供应商（Open Code 内置 / 自定义）、API Key、模型。
+- **AI 接口**：启用 AI、供应商（Open Code / Command Code 内置，或自定义）、API Key、模型。
+  **每个供应商的 Key 与模型单独保存**，切换后无需重填；旧版只有一份，升级时自动归到当时选中的供应商。
   内置供应商的地址与 `x-opencode-session` 请求头由代码固定，界面不提供开关。
   改完先点「测试连接」：几秒内就能确认地址 / Key / 模型名是否都对。
 - **合集命名**：合集名里最多显示几个艺名、是否用中文名命名合集、AI 请求超时；

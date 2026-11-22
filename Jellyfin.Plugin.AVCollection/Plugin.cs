@@ -33,14 +33,16 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
     /// <summary>
     /// 把上一版写进配置文件的旧值迁移到当前语义。
     ///
-    /// 触发场景：1.0.0.9 及更早版本的配置文件里 <c>Ai.TimeoutSeconds</c> 是 60，
-    /// 而实测推理模型判断 20 位演员要 149 秒 —— 升级后不改这个值，「AI 智能合并」永远超时。
-    /// 迁移只跑一次（靠 <see cref="PluginConfiguration.ConfigVersion"/> 判断），
-    /// 之后用户手动调小也不会被再覆盖。
+    /// 两步都靠 <see cref="PluginConfiguration.ConfigVersion"/> 判断，只跑一次：
+    /// 1. 1.0.0.9 及更早的 <c>Ai.TimeoutSeconds</c> 是 60，实测推理模型判断 20 位演员要 149 秒，
+    ///    升级后不改这个值，「AI 智能合并」永远超时。
+    /// 2. 1.1.0.3 起 AI 凭据按供应商分槽位，旧版唯一的一组 <c>ApiKey</c> / <c>Model</c>
+    ///    必须搬进「当前供应商」的槽位并写回 —— 设置页读的是新槽位，不写回的话
+    ///    用户打开页面点一次保存就会把旧凭据清掉，等于丢了密钥。
     /// </summary>
     private void MigrateConfiguration()
     {
-        const int CurrentVersion = 1;
+        const int CurrentVersion = 2;
 
         if (Configuration.ConfigVersion >= CurrentVersion)
         {
@@ -49,14 +51,21 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
 
         try
         {
-            var timeout = Configuration.Ai?.TimeoutSeconds ?? 0;
-
-            // 只提升明显不够用的旧值；用户如果已经调到 120 以上就尊重他的选择。
-            if (timeout < 120)
+            if (Configuration.ConfigVersion < 1)
             {
-                Configuration.Ai ??= new AiOptions();
-                Configuration.Ai.TimeoutSeconds = 300;
+                var timeout = Configuration.Ai?.TimeoutSeconds ?? 0;
+
+                // 只提升明显不够用的旧值；用户如果已经调到 120 以上就尊重他的选择。
+                if (timeout < 120)
+                {
+                    Configuration.Ai ??= new AiOptions();
+                    Configuration.Ai.TimeoutSeconds = 300;
+                }
             }
+
+            // v2：旧版单一凭据 → 当前供应商槽位。内部只在不迁移时是空操作。
+            Configuration.Ai ??= new AiOptions();
+            Configuration.Ai.MigrateLegacyCredentials();
 
             Configuration.ConfigVersion = CurrentVersion;
             UpdateConfiguration(Configuration);

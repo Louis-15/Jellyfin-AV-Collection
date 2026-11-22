@@ -50,7 +50,7 @@ public sealed class AiClient
     {
         var payload = new JsonObject
         {
-            ["model"] = options.Model,
+            ["model"] = options.ResolveModel(),
             ["temperature"] = 0.1,
             ["messages"] = new JsonArray
             {
@@ -76,7 +76,13 @@ public sealed class AiClient
                 Content = new StringContent(payload.ToJsonString(JsonOptions), Encoding.UTF8, "application/json")
             };
 
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", options.ApiKey.Trim());
+            // 空 Key 时不发 Authorization：本地 Ollama / LM Studio 不需要，
+            // 而某些网关会把 "Bearer " 当成无效凭据直接 401。
+            var apiKey = options.ResolveApiKey();
+            if (!string.IsNullOrWhiteSpace(apiKey))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey.Trim());
+            }
 
             // Open Code 网关从 2025-09-06 起强制要求这个头；自带接口不能乱加，
             // 部分服务端会因为未知请求头直接 400。所以按供应商决定，不做成开关。

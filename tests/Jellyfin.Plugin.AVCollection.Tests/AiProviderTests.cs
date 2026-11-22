@@ -65,6 +65,109 @@ public class AiProviderTests
     }
 
     [Fact]
+    public void CommandCode_用内置地址且不带_session_头()
+    {
+        var options = new AiOptions
+        {
+            Provider = AiProviders.CommandCode,
+
+            // 从 OpenCode 切过来时 BaseUrl 里可能残留别的地址，内置供应商必须忽略它。
+            BaseUrl = "https://api.example.com/v1"
+        };
+
+        Assert.False(options.IsOpenCode);
+        Assert.True(options.IsCommandCode);
+        Assert.False(options.IsCustom);
+        Assert.Equal(AiProviders.CommandCodeBaseUrl, options.ResolveBaseUrl());
+        Assert.Equal("https://api.commandcode.ai/provider/v1", options.ResolveBaseUrl());
+    }
+
+    [Fact]
+    public void CommandCode_的默认模型带厂商前缀()
+    {
+        // 直接照搬 OpenCode 的 deepseek-v4.1-flash 会返回 400 unsupported_model。
+        var options = new AiOptions { Provider = AiProviders.CommandCode };
+        Assert.Equal(AiProviders.DefaultCommandCodeModel, options.ResolveModel());
+        Assert.Contains("/", options.ResolveModel());
+        Assert.NotEqual(AiProviders.DefaultOpenCodeModel, options.ResolveModel());
+    }
+
+    [Fact]
+    public void 每个供应商各自保存_Key_和模型()
+    {
+        var options = new AiOptions
+        {
+            Provider = AiProviders.OpenCode,
+            OpenCodeApiKey = "open-key",
+            OpenCodeModel = "open-model",
+            CommandCodeApiKey = "cmd-key",
+            CommandCodeModel = "cmd-model",
+            CustomApiKey = "custom-key",
+            CustomModel = "custom-model"
+        };
+
+        Assert.Equal("open-key", options.ResolveApiKey());
+        Assert.Equal("open-model", options.ResolveModel());
+
+        options.Provider = AiProviders.CommandCode;
+        Assert.Equal("cmd-key", options.ResolveApiKey());
+        Assert.Equal("cmd-model", options.ResolveModel());
+
+        options.Provider = AiProviders.Custom;
+        Assert.Equal("custom-key", options.ResolveApiKey());
+        Assert.Equal("custom-model", options.ResolveModel());
+    }
+
+    [Fact]
+    public void 旧版凭据迁移到当前供应商()
+    {
+        // 旧版只有一组 ApiKey / Model。升级后必须搬进当时选中的供应商，
+        // 否则设置页读到的是空槽位，用户一保存就把密钥清掉了。
+        var options = new AiOptions
+        {
+            Provider = AiProviders.CommandCode,
+            ApiKey = "legacy-key",
+            Model = "legacy-model"
+        };
+
+        options.MigrateLegacyCredentials();
+
+        Assert.Equal("legacy-key", options.CommandCodeApiKey);
+        Assert.Equal("legacy-model", options.CommandCodeModel);
+        Assert.Equal(string.Empty, options.ApiKey);
+        Assert.Equal(string.Empty, options.Model);
+
+        // 切到别的供应商不会把 Command Code 的凭据带过去。
+        options.Provider = AiProviders.OpenCode;
+        Assert.Equal(string.Empty, options.OpenCodeApiKey);
+        Assert.Equal(AiProviders.DefaultOpenCodeModel, options.ResolveModel());
+    }
+
+    [Fact]
+    public void 自定义供应商不会被预填模型()
+    {
+        // 自定义网关有哪些模型无法预知，预填一个 OpenCode 模型只会让人更困惑。
+        var options = new AiOptions { Provider = AiProviders.Custom };
+        Assert.Equal(string.Empty, options.ResolveModel());
+    }
+
+    [Fact]
+    public void 未迁移的对象仍能回退到旧凭据()
+    {
+        // 设置页控制器或测试可能直接构造 AiOptions 而不跑迁移；
+        // 此时槽位为空，必须回退到旧字段，不能变成无鉴权请求。
+        var options = new AiOptions
+        {
+            Provider = AiProviders.OpenCode,
+            ApiKey = "legacy-key",
+            Model = "legacy-model"
+        };
+
+        Assert.Equal("legacy-key", options.ResolveApiKey());
+        Assert.Equal("legacy-model", options.ResolveModel());
+    }
+
+    [Fact]
     public void 默认超时足够跑完一批翻译()
     {
         // 实测推理模型处理 20 位演员要 100-150 秒；
@@ -80,8 +183,14 @@ public class AiProviderTests
             Enabled = true,
             Provider = AiProviders.Custom,
             BaseUrl = "https://api.example.com/v1",
-            ApiKey = "sk-test",
-            Model = "some-model",
+            ApiKey = "legacy-key",
+            Model = "legacy-model",
+            OpenCodeApiKey = "open-key",
+            OpenCodeModel = "open-model",
+            CommandCodeApiKey = "cmd-key",
+            CommandCodeModel = "cmd-model",
+            CustomApiKey = "sk-test",
+            CustomModel = "some-model",
             TimeoutSeconds = 300,
             TranslateNames = true
         };
@@ -93,6 +202,12 @@ public class AiProviderTests
         Assert.Equal(original.BaseUrl, copy.BaseUrl);
         Assert.Equal(original.ApiKey, copy.ApiKey);
         Assert.Equal(original.Model, copy.Model);
+        Assert.Equal(original.OpenCodeApiKey, copy.OpenCodeApiKey);
+        Assert.Equal(original.OpenCodeModel, copy.OpenCodeModel);
+        Assert.Equal(original.CommandCodeApiKey, copy.CommandCodeApiKey);
+        Assert.Equal(original.CommandCodeModel, copy.CommandCodeModel);
+        Assert.Equal(original.CustomApiKey, copy.CustomApiKey);
+        Assert.Equal(original.CustomModel, copy.CustomModel);
         Assert.Equal(original.TranslateNames, copy.TranslateNames);
 
         // 原对象必须保持不变，否则「测试连接」会改掉用户保存的超时。

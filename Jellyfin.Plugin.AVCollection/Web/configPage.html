@@ -273,6 +273,7 @@
                             <label class="selectLabel" for="AiProvider">供应商</label>
                             <select is="emby-select" id="AiProvider" class="emby-select-withcolor">
                                 <option value="OpenCode">Open Code（内置）</option>
+                                <option value="CommandCode">Command Code（内置）</option>
                                 <option value="Custom">自定义</option>
                             </select>
                             <div class="fieldDescription" id="AiProviderHint">
@@ -294,14 +295,18 @@
                         <div class="inputContainer">
                             <label class="inputLabel inputLabelUnfocused" for="AiApiKey">API Key</label>
                             <input is="emby-input" id="AiApiKey" type="password" />
-                            <div class="fieldDescription">只保存在服务器插件配置里，不会写进日志。</div>
+                            <div class="fieldDescription">
+                                只保存在服务器插件配置里，不会写进日志。
+                                <strong>每个供应商各存一份</strong>，换供应商不会覆盖原来那把 Key。
+                            </div>
                         </div>
 
                         <div class="inputContainer">
                             <label class="inputLabel inputLabelUnfocused" for="AiModel">模型</label>
                             <input is="emby-input" id="AiModel" type="text" />
-                            <div class="fieldDescription">
+                            <div class="fieldDescription" id="AiModelHint">
                                 Open Code 可用：deepseek-v4.1-flash、glm-5.3-flash、kimi-k3 等。
+                                每个供应商的模型也是单独保存的，切回来不用重填。
                             </div>
                         </div>
 
@@ -724,17 +729,114 @@
 
             // ---------- 配置 ----------
 
+            // ---------- AI 供应商 ----------
+
+            // 三个供应商各存一份 API Key / 模型：切换下拉框时先把当前输入写回原供应商，
+            // 再把目标供应商已保存的值填进表单。这样来回切换既不会串 Key，也不用重填模型。
+            var aiDrafts = {};
+            var activeAiProvider = 'OpenCode';
+
+            var AiProviderDefaultModels = {
+                OpenCode: 'deepseek-v4.1-flash',
+                CommandCode: 'deepseek/deepseek-v4.1-flash',
+                Custom: ''
+            };
+
+            var AiProviderHints = {
+                OpenCode: 'Open Code 已内置 <code>https://opencode.ai/inference/go/openai/v1</code>，'
+                    + '并自动附带它要求的 <code>x-opencode-session</code> 请求头。',
+                CommandCode: 'Command Code 已内置 <code>https://api.commandcode.ai/provider/v1</code>，'
+                    + '标准 OpenAI 兼容接口，不需要额外的会话头。',
+                Custom: '填你自己的 OpenAI 兼容接口地址，请求不会带 <code>x-opencode-session</code> 头。'
+            };
+
+            var AiModelHints = {
+                OpenCode: 'Open Code 可用：deepseek-v4.1-flash、glm-5.3-flash、kimi-k3 等。',
+                CommandCode: '模型名带厂商前缀，例如 deepseek/deepseek-v4.1-flash、moonshotai/Kimi-K3、'
+                    + 'zai-org/GLM-5.3。不带前缀会返回 400 unsupported_model。',
+                Custom: '填写你的网关实际提供的模型名，例如 qwen2.5:14b。'
+            };
+
+            function normalizeAiProvider(value) {
+                return AiProviderDefaultModels.hasOwnProperty(value) ? value : 'OpenCode';
+            }
+
+            // 从配置里读出每个供应商的槽位；旧版只有一组 ApiKey/Model，
+            // 这里兜底把它并入当前供应商（服务端加载时也会迁移，双保险）。
+            function readAiDrafts(ai) {
+                var provider = normalizeAiProvider(ai.Provider);
+                var drafts = {
+                    OpenCode: {
+                        apiKey: ai.OpenCodeApiKey || '',
+                        model: ai.OpenCodeModel || ''
+                    },
+                    CommandCode: {
+                        apiKey: ai.CommandCodeApiKey || '',
+                        model: ai.CommandCodeModel || ''
+                    },
+                    Custom: {
+                        apiKey: ai.CustomApiKey || '',
+                        model: ai.CustomModel || ''
+                    }
+                };
+
+                if (ai.ApiKey || ai.Model) {
+                    var slot = drafts[provider];
+                    if (!slot.apiKey) {
+                        slot.apiKey = ai.ApiKey || '';
+                    }
+
+                    if (!slot.model) {
+                        slot.model = ai.Model || '';
+                    }
+                }
+
+                return drafts;
+            }
+
+            function ensureAiDrafts() {
+                ['OpenCode', 'CommandCode', 'Custom'].forEach(function (key) {
+                    if (!aiDrafts[key]) {
+                        aiDrafts[key] = { apiKey: '', model: '' };
+                    }
+                });
+            }
+
+            function stashAiProviderFields(provider) {
+                provider = normalizeAiProvider(provider);
+                aiDrafts[provider] = {
+                    apiKey: byId('AiApiKey').value.trim(),
+                    model: byId('AiModel').value.trim()
+                };
+            }
+
+            function showAiProviderFields(provider) {
+                provider = normalizeAiProvider(provider);
+                var slot = aiDrafts[provider] || { apiKey: '', model: '' };
+
+                byId('AiApiKey').value = slot.apiKey || '';
+                byId('AiModel').value = slot.model || AiProviderDefaultModels[provider] || '';
+                byId('AiBaseUrlRow').style.display = provider === 'Custom' ? 'block' : 'none';
+                byId('AiProviderHint').innerHTML = AiProviderHints[provider];
+                byId('AiModelHint').textContent = AiModelHints[provider]
+                    + ' 每个供应商的模型也是单独保存的，切回来不用重填。';
+            }
+
             /**
-             * 供应商是内置的 Open Code 时隐藏「接口地址」输入框：
-             * 那个地址写死在代码里，显示出来只会诱导用户去改，改坏了报错还很难查。
+             * 供应商是内置的 Open Code / Command Code 时隐藏「接口地址」输入框：
+             * 那些地址写死在代码里，显示出来只会诱导用户去改，改坏了报错还很难查。
              */
             function syncAiProviderRows() {
-                var custom = byId('AiProvider').value === 'Custom';
-                byId('AiBaseUrlRow').style.display = custom ? 'block' : 'none';
-                byId('AiProviderHint').innerHTML = custom
-                    ? '填你自己的 OpenAI 兼容接口地址，请求不会带 x-opencode-session 头。'
-                    : 'Open Code 已内置 <code>https://opencode.ai/inference/go/openai/v1</code>，'
-                      + '并自动附带它要求的 <code>x-opencode-session</code> 请求头。';
+                var provider = normalizeAiProvider(byId('AiProvider').value);
+                if (provider !== activeAiProvider) {
+                    // 先把用户刚敲进表单的值存回原供应商，再切到目标供应商的存档。
+                    stashAiProviderFields(activeAiProvider);
+                    activeAiProvider = provider;
+                    showAiProviderFields(provider);
+                    return;
+                }
+
+                byId('AiBaseUrlRow').style.display = provider === 'Custom' ? 'block' : 'none';
             }
 
             function loadConfig() {
@@ -752,12 +854,13 @@
                     var ai = cfg.Ai || {};
                     byId('AiEnabled').checked = ai.Enabled === true;
                     byId('AiTranslateNames').checked = ai.TranslateNames === true;
-                    byId('AiProvider').value = ai.Provider || 'OpenCode';
+                    aiDrafts = readAiDrafts(ai);
+                    ensureAiDrafts();
+                    activeAiProvider = normalizeAiProvider(ai.Provider);
+                    byId('AiProvider').value = activeAiProvider;
                     byId('AiBaseUrl').value = ai.BaseUrl || '';
-                    byId('AiApiKey').value = ai.ApiKey || '';
-                    byId('AiModel').value = ai.Model || 'deepseek-v4.1-flash';
                     byId('AiTimeoutSeconds').value = ai.TimeoutSeconds || 300;
-                    syncAiProviderRows();
+                    showAiProviderFields(activeAiProvider);
 
                     return loadLibraries(cfg.LibraryIds || []);
                 });
@@ -786,12 +889,25 @@
 
                     // 合并组只通过「艺名合并」区域的接口维护，这里必须原样带回，
                     // 否则保存设置会把用户配好的组清空。
+                    //
+                    // AI 凭据按供应商分槽位：先把当前表单写回对应供应商，再一次性写出三份存档。
+                    // ApiKey / Model 是旧版字段，只服务于升级迁移；必须置空，
+                    // 否则「清空某个供应商的 Key」会被兼容回退的旧值重新填回来。
+                    ensureAiDrafts();
+                    var aiProvider = normalizeAiProvider(byId('AiProvider').value);
+                    stashAiProviderFields(aiProvider);
                     cfg.Ai = {
                         Enabled: byId('AiEnabled').checked,
-                        Provider: byId('AiProvider').value || 'OpenCode',
+                        Provider: aiProvider,
                         BaseUrl: byId('AiBaseUrl').value.trim(),
-                        ApiKey: byId('AiApiKey').value.trim(),
-                        Model: byId('AiModel').value.trim() || 'deepseek-v4.1-flash',
+                        ApiKey: '',
+                        Model: '',
+                        OpenCodeApiKey: aiDrafts.OpenCode.apiKey,
+                        OpenCodeModel: aiDrafts.OpenCode.model,
+                        CommandCodeApiKey: aiDrafts.CommandCode.apiKey,
+                        CommandCodeModel: aiDrafts.CommandCode.model,
+                        CustomApiKey: aiDrafts.Custom.apiKey,
+                        CustomModel: aiDrafts.Custom.model,
                         TranslateNames: byId('AiTranslateNames').checked,
                         TimeoutSeconds: (function () {
                             var value = parseInt(byId('AiTimeoutSeconds').value, 10);

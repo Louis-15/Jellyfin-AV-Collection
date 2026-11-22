@@ -51,17 +51,17 @@ public sealed class AiNameTranslator
             return AiTestResult.Fail("没有 AI 配置");
         }
 
-        if (string.IsNullOrWhiteSpace(options.ApiKey))
+        if (string.IsNullOrWhiteSpace(options.ResolveApiKey()))
         {
             return AiTestResult.Fail("未填写 API Key");
         }
 
-        if (string.IsNullOrWhiteSpace(options.Model))
+        if (string.IsNullOrWhiteSpace(options.ResolveModel()))
         {
             return AiTestResult.Fail("未填写模型名");
         }
 
-        if (!options.IsOpenCode && string.IsNullOrWhiteSpace(options.BaseUrl))
+        if (options.IsCustom && string.IsNullOrWhiteSpace(options.BaseUrl))
         {
             return AiTestResult.Fail("供应商选的是「自定义」，但没填接口地址");
         }
@@ -82,8 +82,8 @@ public sealed class AiNameTranslator
             return AiTestResult.Fail(result.Error, endpoint, result.ElapsedMs);
         }
 
-        _log.Info($"AI 连接测试成功：{options.Provider} / {options.Model}，耗时 {result.ElapsedMs} ms");
-        return AiTestResult.Success(endpoint, options.Model, result.ElapsedMs, result.Content);
+        _log.Info($"AI 连接测试成功：{options.Provider} / {options.ResolveModel()}，耗时 {result.ElapsedMs} ms");
+        return AiTestResult.Success(endpoint, options.ResolveModel(), result.ElapsedMs, result.Content);
     }
 
     /// <summary>
@@ -117,12 +117,17 @@ public sealed class AiNameTranslator
             return TranslateResult.Fail("AI 未启用。请到「AI 设置」里勾选「启用 AI」。");
         }
 
-        if (string.IsNullOrWhiteSpace(options.ApiKey))
+        if (string.IsNullOrWhiteSpace(options.ResolveApiKey()))
         {
             return TranslateResult.Fail("未填写 API Key");
         }
 
-        if (!options.IsOpenCode && string.IsNullOrWhiteSpace(options.BaseUrl))
+        if (string.IsNullOrWhiteSpace(options.ResolveModel()))
+        {
+            return TranslateResult.Fail("未填写模型名");
+        }
+
+        if (options.IsCustom && string.IsNullOrWhiteSpace(options.BaseUrl))
         {
             return TranslateResult.Fail("供应商选的是「自定义」，但没填接口地址");
         }
