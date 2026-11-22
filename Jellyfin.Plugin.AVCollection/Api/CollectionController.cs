@@ -7,6 +7,7 @@ using Jellyfin.Plugin.AVCollection.Core;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Jellyfin.Plugin.AVCollection.Api;
 
@@ -257,14 +258,29 @@ public sealed class CollectionController : ControllerBase
     /// 地址通不通、Key 对不对、模型名存不存在。
     /// 用户配完 Key 后先点这个，比直接等一次完整翻译要友好得多。
     /// </summary>
+    /// <param name="probe">
+    /// 前端当前表单值（可能还没保存）。为空时回退到已保存配置，
+    /// 兼容浏览器里缓存的旧页面。
+    /// </param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>测试结果。</returns>
     [HttpPost("Ai/Test")]
     [Authorize(Policy = "RequiresElevation")]
-    public async Task<IActionResult> TestAiAsync(CancellationToken cancellationToken)
+    public async Task<IActionResult> TestAiAsync(
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] AiOptions? probe,
+        CancellationToken cancellationToken)
     {
+        var config = Plugin.Current;
+        var saved = config.Ai ?? new AiOptions();
+
+        // 测试必须测用户眼前这套配置，而不是磁盘上那份：
+        // 否则「切换供应商后先点测试」测到的仍是上一次保存的供应商。
+        // 测试不写配置，用户确认无误后再点保存。
+        var options = probe ?? saved;
+        options.Enabled = true;
+
         var result = await _translator
-            .TestAsync(Plugin.Current.Ai, cancellationToken)
+            .TestAsync(options, cancellationToken)
             .ConfigureAwait(false);
 
         return Ok(new

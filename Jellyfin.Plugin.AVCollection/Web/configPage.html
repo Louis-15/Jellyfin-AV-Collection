@@ -315,6 +315,9 @@
                                 <span>测试连接</span>
                             </button>
                         </div>
+                        <div class="fieldDescription">
+                            测试使用当前表单值，不会保存；确认无误后再点页面底部的「保存」。
+                        </div>
 
                         <div class="av-status" id="AiTestStatus"></div>
                     </div>
@@ -734,7 +737,10 @@
             // 三个供应商各存一份 API Key / 模型：切换下拉框时先把当前输入写回原供应商，
             // 再把目标供应商已保存的值填进表单。这样来回切换既不会串 Key，也不用重填模型。
             var aiDrafts = {};
-            var activeAiProvider = 'OpenCode';
+
+            // 当前表单里展示的是哪个供应商的存档。用它而不是「下拉框当前值」来决定
+            // 切换时该把输入存回哪一格 —— 两者在页面异步加载期间可能短暂不一致。
+            var renderedAiProvider = '';
 
             var AiProviderDefaultModels = {
                 OpenCode: 'deepseek-v4.1-flash',
@@ -820,6 +826,7 @@
                 byId('AiProviderHint').innerHTML = AiProviderHints[provider];
                 byId('AiModelHint').textContent = AiModelHints[provider]
                     + ' 每个供应商的模型也是单独保存的，切回来不用重填。';
+                renderedAiProvider = provider;
             }
 
             /**
@@ -828,10 +835,9 @@
              */
             function syncAiProviderRows() {
                 var provider = normalizeAiProvider(byId('AiProvider').value);
-                if (provider !== activeAiProvider) {
+                if (provider !== renderedAiProvider) {
                     // 先把用户刚敲进表单的值存回原供应商，再切到目标供应商的存档。
-                    stashAiProviderFields(activeAiProvider);
-                    activeAiProvider = provider;
+                    stashAiProviderFields(renderedAiProvider);
                     showAiProviderFields(provider);
                     return;
                 }
@@ -856,11 +862,10 @@
                     byId('AiTranslateNames').checked = ai.TranslateNames === true;
                     aiDrafts = readAiDrafts(ai);
                     ensureAiDrafts();
-                    activeAiProvider = normalizeAiProvider(ai.Provider);
-                    byId('AiProvider').value = activeAiProvider;
+                    byId('AiProvider').value = normalizeAiProvider(ai.Provider);
                     byId('AiBaseUrl').value = ai.BaseUrl || '';
                     byId('AiTimeoutSeconds').value = ai.TimeoutSeconds || 300;
-                    showAiProviderFields(activeAiProvider);
+                    showAiProviderFields(byId('AiProvider').value);
 
                     return loadLibraries(cfg.LibraryIds || []);
                 });
@@ -1269,14 +1274,44 @@
             }
 
             /**
+             * 收集 AI 表单的当前值。
+             *
+             * 测试连接必须用它，不能读服务端已保存的配置 —— 否则「切换供应商后先点测试」
+             * 测到的会是上一次保存的供应商。测试本身也不写配置，用户确认无误后再保存。
+             */
+            function collectAiProbe() {
+                ensureAiDrafts();
+                var provider = normalizeAiProvider(byId('AiProvider').value);
+                stashAiProviderFields(provider);
+
+                return {
+                    enabled: true,
+                    provider: provider,
+                    baseUrl: byId('AiBaseUrl').value.trim(),
+                    apiKey: '',
+                    model: '',
+                    openCodeApiKey: aiDrafts.OpenCode.apiKey,
+                    openCodeModel: aiDrafts.OpenCode.model,
+                    commandCodeApiKey: aiDrafts.CommandCode.apiKey,
+                    commandCodeModel: aiDrafts.CommandCode.model,
+                    customApiKey: aiDrafts.Custom.apiKey,
+                    customModel: aiDrafts.Custom.model,
+                    timeoutSeconds: (function () {
+                        var value = parseInt(byId('AiTimeoutSeconds').value, 10);
+                        return isNaN(value) ? 300 : Math.min(900, Math.max(30, value));
+                    })()
+                };
+            }
+
+            /**
              * 测试 AI 连接。只发一个极短的请求，几秒到几十秒就能出结果，
              * 用来在不跑完整合并的前提下确认地址 / Key / 模型名三项都对。
              */
             function testAi() {
                 Dashboard.showLoadingMsg();
-                setStatusIn('AiTestStatus', '正在测试连接…');
+                setStatusIn('AiTestStatus', '正在测试当前填写的配置（不会保存）…');
 
-                apiSend('POST', 'AVCollection/Ai/Test').then(function (result) {
+                apiSend('POST', 'AVCollection/Ai/Test', collectAiProbe()).then(function (result) {
                     var lines = [result.message || (result.ok ? '连接正常' : '连接失败')];
 
                     if (result.endpoint) {
@@ -1373,6 +1408,9 @@
             });
 
             document.querySelector('#AiProvider').addEventListener('change', syncAiProviderRows);
+
+            // 某些浏览器 / 自定义元素组合只在 input 阶段派发事件；两个都挂，sync 本身幂等。
+            document.querySelector('#AiProvider').addEventListener('input', syncAiProviderRows);
             document.querySelector('#TestAiButton').addEventListener('click', testAi);
             document.querySelector('#TranslateButton').addEventListener('click', translateNames);
             document.querySelector('#ActorSearch').addEventListener('input', renderActors);

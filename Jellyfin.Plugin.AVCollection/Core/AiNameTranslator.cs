@@ -51,11 +51,6 @@ public sealed class AiNameTranslator
             return AiTestResult.Fail("没有 AI 配置");
         }
 
-        if (string.IsNullOrWhiteSpace(options.ResolveApiKey()))
-        {
-            return AiTestResult.Fail("未填写 API Key");
-        }
-
         if (string.IsNullOrWhiteSpace(options.ResolveModel()))
         {
             return AiTestResult.Fail("未填写模型名");
@@ -79,7 +74,7 @@ public sealed class AiNameTranslator
         if (!result.Ok)
         {
             _log.Warn($"AI 连接测试失败：{result.Error}");
-            return AiTestResult.Fail(result.Error, endpoint, result.ElapsedMs);
+            return AiTestResult.Fail(result.Error, endpoint, result.ElapsedMs, options.ResolveModel());
         }
 
         _log.Info($"AI 连接测试成功：{options.Provider} / {options.ResolveModel()}，耗时 {result.ElapsedMs} ms");
@@ -115,11 +110,6 @@ public sealed class AiNameTranslator
         if (options is null || !options.Enabled)
         {
             return TranslateResult.Fail("AI 未启用。请到「AI 设置」里勾选「启用 AI」。");
-        }
-
-        if (string.IsNullOrWhiteSpace(options.ResolveApiKey()))
-        {
-            return TranslateResult.Fail("未填写 API Key");
         }
 
         if (string.IsNullOrWhiteSpace(options.ResolveModel()))

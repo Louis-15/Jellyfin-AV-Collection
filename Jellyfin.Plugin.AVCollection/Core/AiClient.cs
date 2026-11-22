@@ -256,13 +256,15 @@ public sealed class AiTestResult
     /// <param name="error">失败原因。</param>
     /// <param name="endpoint">请求地址（未知时为空）。</param>
     /// <param name="elapsedMs">耗时毫秒。</param>
+    /// <param name="model">本次实际请求的模型名，便于用户核对。</param>
     /// <returns>结果。</returns>
-    public static AiTestResult Fail(string error, string endpoint = "", long elapsedMs = 0)
+    public static AiTestResult Fail(string error, string endpoint = "", long elapsedMs = 0, string model = "")
         => new()
         {
             Ok = false,
             Message = error,
             Endpoint = endpoint,
+            Model = model,
             ElapsedMs = elapsedMs
         };
 }
